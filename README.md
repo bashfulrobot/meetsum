@@ -2,7 +2,7 @@
 
 **Meeting Summary Generator CLI Tool**
 
-A modern Go CLI application that transforms meeting transcripts into structured summaries using AI. Built as a complete rewrite of the original bash script with enhanced features, better error handling, and a superior user experience.
+A modern Go CLI application that transforms meeting transcripts into structured summaries using AI.
 
 [![Go](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -241,9 +241,23 @@ See [settings.sample.yaml](settings.sample.yaml) for all available options with 
 ### Prerequisites
 
 - Go 1.21+
+- C compiler (gcc, clang, or build-essential)
 - [just](https://github.com/casey/just) task runner (optional)
 
 ### Building from Source
+
+**Note**: This project requires CGO due to some dependencies. You need a C compiler installed:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install build-essential
+
+# macOS (via Xcode Command Line Tools)
+xcode-select --install
+
+# Or use clang if available
+export CC=clang
+```
 
 ```bash
 git clone https://github.com/bashfulrobot/meetsum.git
@@ -251,6 +265,14 @@ cd meetsum
 go mod tidy
 go build -o meetsum
 ```
+
+If you encounter CGO errors, ensure you have a C compiler and set the appropriate environment variables:
+```bash
+# For clang users
+CC=clang go build -o meetsum
+```
+
+**Note for Contributors**: The project uses GitHub Actions with a matrix build strategy to handle CGO cross-compilation across different platforms (Linux, macOS) and architectures (amd64, arm64). Each platform builds natively to ensure proper CGO support.
 
 ### Development Commands (with just)
 
@@ -313,19 +335,6 @@ meetsum/
 - `charmbracelet/glamour` - Markdown rendering
 - `charmbracelet/log` - Structured logging
 
-## 🆚 Comparison with Original Bash Script
-
-| Feature | Bash Script | Go CLI (meetsum) |
-|---------|-------------|------------------|
-| **Dependencies** | 5+ external tools (gum, bat, glow, etc.) | 1 external tool (gemini) |
-| **Installation** | Manual script setup | Single binary + auto-install |
-| **Configuration** | Hard-coded variables | YAML config files |
-| **Error Handling** | Basic shell error handling | Comprehensive error messages |
-| **User Interface** | Basic gum prompts | Rich terminal UI with styling |
-| **Cross-platform** | Unix/Linux only | macOS, Linux (Intel/ARM) |
-| **Validation** | Limited file checking | Complete dependency validation |
-| **Documentation** | Separate files | Integrated help and docs |
-
 ## 🔒 Security Considerations
 
 meetsum takes security seriously:
@@ -333,7 +342,7 @@ meetsum takes security seriously:
 - **⚠️ Clear Warnings** - All external script execution (Homebrew installation) includes explicit security warnings
 - **🔍 Manual Options** - Alternative manual installation paths for security-conscious users
 - **📖 Transparent Documentation** - Links to official documentation for all dependencies
-- **🛡️ Minimal Dependencies** - Reduced external tool requirements compared to bash version
+- **🛡️ Minimal Dependencies** - Reduced external tool requirements
 
 When installing Homebrew, you'll see warnings like:
 ```
@@ -345,30 +354,12 @@ The script will be run with elevated privileges and may prompt for your password
 Visit https://brew.sh/ for manual installation instructions
 ```
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and checks (`just check && just test`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-### Development Guidelines
-
-- Follow Go best practices and idioms
-- Add tests for new functionality
-- Update documentation for user-facing changes
-- Use `just check` before committing to ensure code quality
-
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- Original bash script inspiration and requirements
 - [Charm.sh](https://charm.sh) for excellent terminal UI libraries
 - [Google Gemini](https://ai.google.dev/) for AI-powered text generation
 - [Homebrew](https://brew.sh/) for package management
@@ -378,10 +369,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - 🐛 **Bug Reports**: [GitHub Issues](https://github.com/bashfulrobot/meetsum/issues)
 - 💡 **Feature Requests**: [GitHub Discussions](https://github.com/bashfulrobot/meetsum/discussions)
-- 📖 **Documentation**: Run `meetsum docs gemini` or visit the repository
+- 📖 **Gemini Documentation**: Run `meetsum docs gemini` for Gemini CLI setup instructions
 
----
-
-**Built with ❤️ and Go**
-
-Made to transform your meeting transcripts into actionable insights with the power of AI and a delightful CLI experience.
