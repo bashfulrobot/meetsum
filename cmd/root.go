@@ -47,11 +47,8 @@ func SetVersion(v, bt, gc string) {
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
-	}
+func Execute() error {
+	return rootCmd.Execute()
 }
 
 func init() {
@@ -69,7 +66,9 @@ func initConfig() {
 
 	if err := config.LoadConfig(); err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
-		os.Exit(1)
+		// Note: cobra.OnInitialize functions can't return errors,
+		// but we can't exit here either. This is a limitation we need to address.
+		// For now, we'll continue with defaults but log the error.
 	}
 }
 

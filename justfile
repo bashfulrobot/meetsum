@@ -1,5 +1,9 @@
 # meetsum Go CLI Project
 # Meeting Summary Generator
+#
+# Note: This project requires CGO due to some dependencies.
+# Ensure you have a C compiler (gcc, clang) installed.
+# For clang users, set CC=clang before running build commands.
 
 # === Settings ===
 set dotenv-load := true
@@ -55,7 +59,7 @@ build:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "🔨 Building {{app_name}} for current platform..."
-    CGO_ENABLED=0 go build -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" -o {{app_name}}
+    go build -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" -o {{app_name}}
     echo "✅ Build complete: ./{{app_name}}"
     echo "💡 Test version: ./{{app_name}} version"
 
@@ -107,7 +111,7 @@ build-all: clean
         output="dist/{{app_name}}-${GOOS}-${GOARCH}"
 
         echo "Building for ${GOOS}/${GOARCH}..."
-        CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
+        GOOS=$GOOS GOARCH=$GOARCH go build \
             -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" \
             -o "$output"
     done
@@ -121,7 +125,7 @@ install:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "📦 Installing {{app_name}}..."
-    CGO_ENABLED=0 go install -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}"
+    go install -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}"
     echo "✅ Installed to $(go env GOPATH)/bin/{{app_name}}"
 
 # === Maintenance Commands ===

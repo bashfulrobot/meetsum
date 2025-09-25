@@ -26,5 +26,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
