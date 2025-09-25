@@ -1,0 +1,51 @@
+# meetsum configuration file
+# Configuration values extracted from the original bash script
+
+paths:
+  # Base directory for customer meetings
+  customers_dir: "/home/dustin/Documents/Kong/Customers/"
+
+  # Directory containing the LLM instructions file
+  automation_dir: "/home/dustin/Documents/Kong/automation/summaries"
+
+  # LLM instructions file name
+  instructions_file: "Meeting-summary-llm-instructions.md"
+
+files:
+  # Required files in meeting directory
+  transcript: "transcript.txt"
+
+  # Optional context files
+  pov_input: "pov-input.md"
+
+  # Output file naming pattern
+  output_pattern: "{date}-{customer}-cadence-call-summary.md"
+
+ai:
+  # AI provider command to execute (was "gemini" in original script)
+  command: "gemini"
+
+# Feature flags
+features:
+  # Enable trace mode by default (was --trace flag in original)
+  trace_mode: false
+
+  # Show file browser when no path provided (was gum file in original)
+  file_browser: true
+
+  # Enable markdown preview (was glow/bat preview in original)
+  markdown_preview: true
+
+# UI behavior (extracted from original gum styling)
+ui:
+  # File browser settings
+  file_browser:
+    height: 15
+    default_path: "/home/dustin/Documents/Kong/Customers/"
+
+  # Input field settings
+  input:
+    name_placeholder: "Your Name"
+    name_width: 30
+    path_placeholder: "/path/to/Customers/[Customer]/[date]"
+    path_width: 70
