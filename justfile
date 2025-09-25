@@ -59,7 +59,7 @@ build:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "🔨 Building {{app_name}} for current platform..."
-    go build -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" -o {{app_name}}
+    CC=clang go build -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" -o {{app_name}}
     echo "✅ Build complete: ./{{app_name}}"
     echo "💡 Test version: ./{{app_name}} version"
 
@@ -69,7 +69,7 @@ run *args:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "🚀 Running {{app_name}}..."
-    go run . {{args}}
+    CC=clang go run . {{args}}
 
 # Run tests
 [group('dev')]
@@ -111,7 +111,7 @@ build-all: clean
         output="dist/{{app_name}}-${GOOS}-${GOARCH}"
 
         echo "Building for ${GOOS}/${GOARCH}..."
-        GOOS=$GOOS GOARCH=$GOARCH go build \
+        CC=clang GOOS=$GOOS GOARCH=$GOARCH go build \
             -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" \
             -o "$output"
     done
@@ -125,7 +125,7 @@ install:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "📦 Installing {{app_name}}..."
-    go install -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}"
+    CC=clang go install -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}"
     echo "✅ Installed to $(go env GOPATH)/bin/{{app_name}}"
 
 # === Maintenance Commands ===
