@@ -15,7 +15,7 @@ paths:
   # Base directory where customer meeting folders are stored
   # This should point to your main customers directory
   # Example structure: /path/to/Customers/CustomerName/2024-01-15/
-  customers_dir: "/home/user/Documents/Company/Customers/"
+  customers_dir: "/home/user/Documents/Company/Customers"
 
   # Directory containing the LLM instructions markdown file
   # This directory should contain the Meeting-summary-llm-instructions.md file
@@ -38,11 +38,9 @@ files:
   # If present, it will be included in the AI prompt
   pov_input: "pov-input.md"
 
-  # Output filename pattern for generated summaries
-  # Available placeholders: {date}, {customer}
-  # {date} = current date in YYYY-MM-DD format
-  # {customer} = customer name extracted from the meeting directory path
-  output_pattern: "{date}-{customer}-cadence-call-summary.md"
+  # Output filename is automatically generated as:
+  # {date}-{customer}-cadence-call-summary.md
+  # where {date} = current date (YYYY-MM-DD) and {customer} = extracted customer name
 
 # ============================================================================
 # AI CONFIGURATION
@@ -77,33 +75,6 @@ features:
   # When true, offers to display the generated summary in the terminal
   # Uses the glamour library for rich markdown rendering
   markdown_preview: true
-
-# ============================================================================
-# USER INTERFACE CONFIGURATION
-# ============================================================================
-ui:
-  # File browser settings
-  file_browser:
-    # Height of the file browser dialog (number of lines)
-    height: 15
-
-    # Default starting path for the file browser
-    # Should typically match your customers_dir for convenience
-    default_path: "/home/user/Documents/Company/Customers/"
-
-  # Input field settings
-  input:
-    # Placeholder text for name input field
-    name_placeholder: "Your Name"
-
-    # Width of the name input field (characters)
-    name_width: 30
-
-    # Placeholder text for meeting directory path input
-    path_placeholder: "/path/to/Customers/[Customer]/[date]"
-
-    # Width of the path input field (characters)
-    path_width: 70
 
 # ============================================================================
 # ADVANCED CONFIGURATION

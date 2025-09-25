@@ -157,13 +157,15 @@ The generated summary filename follows this pattern: `{date}-{customer}-cadence-
 - `{customer}` - Extracted from the directory path structure
 - Example: `2024-01-15-CustomerA-cadence-call-summary.md`
 
+**Note**: The filename format is automatically generated and cannot be customized.
+
 ### Path Configuration
 
 You can customize the base paths in your configuration file:
 
 ```yaml
 paths:
-  customers_dir: "/your/path/to/Customers/"
+  customers_dir: "/your/path/to/Customers"
   automation_dir: "/your/path/to/automation/summaries"
 
 files:

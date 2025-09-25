@@ -16,9 +16,8 @@ type Config struct {
 	} `mapstructure:"paths"`
 
 	Files struct {
-		Transcript    string `mapstructure:"transcript"`
-		PovInput      string `mapstructure:"pov_input"`
-		OutputPattern string `mapstructure:"output_pattern"`
+		Transcript string `mapstructure:"transcript"`
+		PovInput   string `mapstructure:"pov_input"`
 	} `mapstructure:"files"`
 
 	AI struct {
@@ -31,18 +30,6 @@ type Config struct {
 		MarkdownPreview bool `mapstructure:"markdown_preview"`
 	} `mapstructure:"features"`
 
-	UI struct {
-		FileBrowser struct {
-			Height      int    `mapstructure:"height"`
-			DefaultPath string `mapstructure:"default_path"`
-		} `mapstructure:"file_browser"`
-		Input struct {
-			NamePlaceholder string `mapstructure:"name_placeholder"`
-			NameWidth       int    `mapstructure:"name_width"`
-			PathPlaceholder string `mapstructure:"path_placeholder"`
-			PathWidth       int    `mapstructure:"path_width"`
-		} `mapstructure:"input"`
-	} `mapstructure:"ui"`
 }
 
 var AppConfig *Config
@@ -65,17 +52,10 @@ func LoadConfig() error {
 	viper.SetDefault("paths.instructions_file", "Meeting-summary-llm-instructions.md")
 	viper.SetDefault("files.transcript", "transcript.txt")
 	viper.SetDefault("files.pov_input", "pov-input.md")
-	viper.SetDefault("files.output_pattern", "{date}-{customer}-cadence-call-summary.md")
 	viper.SetDefault("ai.command", "gemini")
 	viper.SetDefault("features.trace_mode", false)
 	viper.SetDefault("features.file_browser", true)
 	viper.SetDefault("features.markdown_preview", true)
-	viper.SetDefault("ui.file_browser.height", 15)
-	viper.SetDefault("ui.file_browser.default_path", filepath.Join(os.Getenv("HOME"), "Documents", "Company", "Customers"))
-	viper.SetDefault("ui.input.name_placeholder", "Your Name")
-	viper.SetDefault("ui.input.name_width", 30)
-	viper.SetDefault("ui.input.path_placeholder", "/path/to/Customers/[Customer]/[date]")
-	viper.SetDefault("ui.input.path_width", 70)
 
 	// Try to read config file
 	if err := viper.ReadInConfig(); err != nil {
