@@ -9,70 +9,129 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  # First, validate and prepare the release
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Fetch all history for changelog generation
+        fetch-depth: 0
+
+    - name: Validate and extract version
+      id: version
+      run: |
+        TAG=${GITHUB_REF#refs/tags/}
+        echo "Building release for tag: $TAG"
+
+        # Validate semver format
+        if [[ ! $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "❌ Invalid semver tag format: $TAG"
+          exit 1
+        fi
+
+        echo "✅ Valid semver tag: $TAG"
+        echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+        echo "tag_name=$TAG" >> $GITHUB_OUTPUT
 
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.21'
 
-    - name: Validate semver tag
-      run: |
-        TAG=${GITHUB_REF#refs/tags/}
-        echo "Building release for tag: $TAG"
-        # Validate semver format (v1.2.3, v1.2.3-alpha.1, etc.)
-        if [[ ! $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-          echo "❌ Invalid semver tag format: $TAG"
-          echo "Expected format: v1.2.3 or v1.2.3-alpha.1"
-          exit 1
-        fi
-        echo "✅ Valid semver tag: $TAG"
-        echo "VERSION=${TAG#v}" >> $GITHUB_ENV
-        echo "TAG_NAME=$TAG" >> $GITHUB_ENV
-
-    - name: Install dependencies
-      run: go mod download
+    - name: Install build dependencies
+      run: sudo apt-get update && sudo apt-get install -y build-essential
 
     - name: Run tests
       run: go test -v ./...
 
-    - name: Build binaries
+  # Build binaries for each platform
+  build:
+    needs: prepare
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            cc: gcc
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            cc: aarch64-linux-gnu-gcc
+            setup: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            cc: clang
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            cc: clang
+
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Install cross-compilation dependencies
+      if: matrix.setup
+      run: ${{ matrix.setup }}
+
+    - name: Build binary
+      env:
+        CC: ${{ matrix.cc }}
+        CGO_ENABLED: 1
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
       run: |
-        mkdir -p dist
+        go build \
+          -ldflags="-X main.Version=${{ needs.prepare.outputs.version }} -X main.BuildTime=$(date -u +%Y-%m-%d_%H:%M:%S) -X main.GitCommit=$(git rev-parse --short HEAD)" \
+          -o meetsum-${{ matrix.goos }}-${{ matrix.goarch }} \
+          .
 
-        # Build for all platforms
-        platforms=(
-          "darwin/amd64"
-          "darwin/arm64"
-          "linux/amd64"
-          "linux/arm64"
-        )
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: meetsum-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: meetsum-${{ matrix.goos }}-${{ matrix.goarch }}
+        retention-days: 1
 
-        for platform in "${platforms[@]}"; do
-          GOOS=${platform%/*}
-          GOARCH=${platform#*/}
-          output="dist/meetsum-${GOOS}-${GOARCH}"
+  # Create the release with all binaries
+  release:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-          echo "Building for ${GOOS}/${GOARCH}..."
-          CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
-            -ldflags="-X main.Version=${{ env.VERSION }} -X main.BuildTime=$(date -u +%Y-%m-%d_%H:%M:%S) -X main.GitCommit=$(git rev-parse --short HEAD)" \
-            -o "$output" \
-            .
-        done
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: dist/
 
-        # Verify all binaries were created
-        ls -la dist/
+    - name: Reorganize artifacts
+      run: |
+        # Move binaries from artifact directories to dist root
+        mkdir -p binaries
+        find dist/ -name "meetsum-*" -type f -exec mv {} binaries/ \;
+        ls -la binaries/
 
-        # Create checksums
-        cd dist
+    - name: Create checksums
+      run: |
+        cd binaries
         sha256sum meetsum-* > checksums.txt
-        cd ..
+        cat checksums.txt
 
     - name: Generate changelog
       id: changelog
@@ -84,35 +143,45 @@ jobs:
           PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
         fi
 
-        echo "Generating changelog from $PREVIOUS_TAG to ${{ env.TAG_NAME }}"
+        echo "Generating changelog from $PREVIOUS_TAG to ${{ needs.prepare.outputs.tag_name }}"
 
-        # Generate changelog from commit messages
+        # Generate changelog
         cat > CHANGELOG.md << 'EOF'
-        # Changelog
+        # Release ${{ needs.prepare.outputs.tag_name }}
 
-        All notable changes to meetsum are documented here.
-
-        ## [${{ env.TAG_NAME }}] - $(date +%Y-%m-%d)
-
-        ### Changes in this release:
+        ## What's Changed
 
         EOF
 
-        # Get commits since last tag, format them nicely
-        git log $PREVIOUS_TAG..${{ env.TAG_NAME }} --pretty=format:"- %s" --no-merges >> CHANGELOG.md
+        # Get commits since last tag
+        git log $PREVIOUS_TAG..${{ needs.prepare.outputs.tag_name }} --pretty=format:"- %s" --no-merges >> CHANGELOG.md
 
         echo "" >> CHANGELOG.md
         echo "" >> CHANGELOG.md
-        echo "### Technical Details:" >> CHANGELOG.md
+        echo "## Technical Details" >> CHANGELOG.md
         echo "" >> CHANGELOG.md
-        echo "- **Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...${{ env.TAG_NAME }}" >> CHANGELOG.md
+        echo "- **Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...${{ needs.prepare.outputs.tag_name }}" >> CHANGELOG.md
         echo "- **Release Date**: $(date +%Y-%m-%d)" >> CHANGELOG.md
         echo "- **Git Commit**: $(git rev-parse --short HEAD)" >> CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        echo "## Installation" >> CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        echo "### Download Pre-built Binaries" >> CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        echo "Choose the appropriate binary for your platform:" >> CHANGELOG.md
+        echo "- **Linux AMD64**: \`meetsum-linux-amd64\`" >> CHANGELOG.md
+        echo "- **Linux ARM64**: \`meetsum-linux-arm64\`" >> CHANGELOG.md
+        echo "- **macOS Intel**: \`meetsum-darwin-amd64\`" >> CHANGELOG.md
+        echo "- **macOS Apple Silicon**: \`meetsum-darwin-arm64\`" >> CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        echo "### Install from Source" >> CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        echo "\`\`\`bash" >> CHANGELOG.md
+        echo "go install github.com/bashfulrobot/meetsum@${{ needs.prepare.outputs.tag_name }}" >> CHANGELOG.md
+        echo "\`\`\`" >> CHANGELOG.md
 
-        # Save changelog for release notes
+        # Save for GitHub release
         cat CHANGELOG.md
-
-        # Format for GitHub release (escape newlines)
         {
           echo 'RELEASE_NOTES<<EOF'
           cat CHANGELOG.md
@@ -122,34 +191,23 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ env.TAG_NAME }}
-        name: "Release ${{ env.TAG_NAME }}"
+        tag_name: ${{ needs.prepare.outputs.tag_name }}
+        name: "Release ${{ needs.prepare.outputs.tag_name }}"
         body: ${{ env.RELEASE_NOTES }}
         draft: false
-        prerelease: ${{ contains(env.TAG_NAME, '-') }}  # Pre-release if tag contains hyphen (v1.0.0-alpha.1)
+        prerelease: ${{ contains(needs.prepare.outputs.tag_name, '-') }}
         files: |
-          dist/meetsum-*
-          dist/checksums.txt
-        generate_release_notes: false  # We're providing custom release notes
+          binaries/meetsum-*
+          binaries/checksums.txt
+        generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload build artifacts
+    - name: Upload complete release artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: meetsum-binaries-${{ env.VERSION }}
+        name: meetsum-release-${{ needs.prepare.outputs.version }}
         path: |
-          dist/meetsum-*
-          dist/checksums.txt
+          binaries/meetsum-*
+          binaries/checksums.txt
         retention-days: 90
-
-  # Optional: Update Homebrew formula (if you want to create a tap later)
-  # homebrew:
-  #   needs: release
-  #   runs-on: ubuntu-latest
-  #   if: "!contains(github.ref, '-')"  # Only for stable releases, not pre-releases
-  #   steps:
-  #   - name: Update Homebrew formula
-  #     run: |
-  #       echo "Future: Update Homebrew tap with new release"
-  #       echo "See: https://docs.brew.sh/How-To-Open-a-Homebrew-Pull-Request"
