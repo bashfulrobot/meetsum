@@ -60,8 +60,8 @@ func LoadConfig() error {
 	viper.AddConfigPath("/etc/meetsum")
 
 	// Set defaults
-	viper.SetDefault("paths.customers_dir", filepath.Join(os.Getenv("HOME"), "Documents", "Kong", "Customers"))
-	viper.SetDefault("paths.automation_dir", filepath.Join(os.Getenv("HOME"), "Documents", "Kong", "automation", "summaries"))
+	viper.SetDefault("paths.customers_dir", filepath.Join(os.Getenv("HOME"), "Documents", "Company", "Customers"))
+	viper.SetDefault("paths.automation_dir", filepath.Join(os.Getenv("HOME"), "Documents", "Company", "automation", "summaries"))
 	viper.SetDefault("paths.instructions_file", "Meeting-summary-llm-instructions.md")
 	viper.SetDefault("files.transcript", "transcript.txt")
 	viper.SetDefault("files.pov_input", "pov-input.md")
@@ -71,7 +71,7 @@ func LoadConfig() error {
 	viper.SetDefault("features.file_browser", true)
 	viper.SetDefault("features.markdown_preview", true)
 	viper.SetDefault("ui.file_browser.height", 15)
-	viper.SetDefault("ui.file_browser.default_path", filepath.Join(os.Getenv("HOME"), "Documents", "Kong", "Customers"))
+	viper.SetDefault("ui.file_browser.default_path", filepath.Join(os.Getenv("HOME"), "Documents", "Company", "Customers"))
 	viper.SetDefault("ui.input.name_placeholder", "Your Name")
 	viper.SetDefault("ui.input.name_width", 30)
 	viper.SetDefault("ui.input.path_placeholder", "/path/to/Customers/[Customer]/[date]")

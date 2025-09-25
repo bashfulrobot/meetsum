@@ -1,0 +1,158 @@
+# meetsum - Meeting Summary Generator Configuration
+#
+# This is a sample configuration file for meetsum.
+# Copy this file to one of the following locations:
+#   - ./settings.yaml (current directory)
+#   - ~/.config/meetsum/settings.yaml (user config directory)
+#   - /etc/meetsum/settings.yaml (system-wide config)
+#
+# Or specify a custom location with: meetsum --config /path/to/settings.yaml
+
+# ============================================================================
+# PATH CONFIGURATION
+# ============================================================================
+paths:
+  # Base directory where customer meeting folders are stored
+  # This should point to your main customers directory
+  # Example structure: /path/to/Customers/CustomerName/2024-01-15/
+  customers_dir: "/home/user/Documents/Company/Customers/"
+
+  # Directory containing the LLM instructions markdown file
+  # This directory should contain the Meeting-summary-llm-instructions.md file
+  automation_dir: "/home/user/Documents/Company/automation/summaries"
+
+  # Name of the LLM instructions file
+  # This file contains the prompts and formatting instructions for the AI
+  instructions_file: "Meeting-summary-llm-instructions.md"
+
+# ============================================================================
+# FILE CONFIGURATION
+# ============================================================================
+files:
+  # Name of the required transcript file in each meeting directory
+  # The application will look for this file in the selected meeting folder
+  transcript: "transcript.txt"
+
+  # Name of the optional POV (Point of View) input file
+  # This file provides additional context and structure for the summary
+  # If present, it will be included in the AI prompt
+  pov_input: "pov-input.md"
+
+  # Output filename pattern for generated summaries
+  # Available placeholders: {date}, {customer}
+  # {date} = current date in YYYY-MM-DD format
+  # {customer} = customer name extracted from the meeting directory path
+  output_pattern: "{date}-{customer}-cadence-call-summary.md"
+
+# ============================================================================
+# AI CONFIGURATION
+# ============================================================================
+ai:
+  # Command to execute for AI text generation
+  # This should be the name of the AI CLI tool you want to use
+  # Currently supported: "gemini" (Google Gemini CLI)
+  # The command must be available in your PATH
+  command: "gemini"
+
+  # Future AI provider options (not yet implemented):
+  # provider: "gemini"  # gemini, openai, anthropic, etc.
+  # model: "gemini-pro"  # specific model to use
+  # api_key_file: "~/.config/gemini/api_key"  # path to API key file
+
+# ============================================================================
+# FEATURE FLAGS
+# ============================================================================
+features:
+  # Enable trace mode by default
+  # When true, shows detailed output and disables loading spinners
+  # Can be overridden with --trace command line flag
+  trace_mode: false
+
+  # Enable file browser when no meeting directory is provided
+  # When true, shows a directory picker if no path is given
+  # When false, requires explicit directory path input
+  file_browser: true
+
+  # Enable markdown preview after summary generation
+  # When true, offers to display the generated summary in the terminal
+  # Uses the glamour library for rich markdown rendering
+  markdown_preview: true
+
+# ============================================================================
+# USER INTERFACE CONFIGURATION
+# ============================================================================
+ui:
+  # File browser settings
+  file_browser:
+    # Height of the file browser dialog (number of lines)
+    height: 15
+
+    # Default starting path for the file browser
+    # Should typically match your customers_dir for convenience
+    default_path: "/home/user/Documents/Company/Customers/"
+
+  # Input field settings
+  input:
+    # Placeholder text for name input field
+    name_placeholder: "Your Name"
+
+    # Width of the name input field (characters)
+    name_width: 30
+
+    # Placeholder text for meeting directory path input
+    path_placeholder: "/path/to/Customers/[Customer]/[date]"
+
+    # Width of the path input field (characters)
+    path_width: 70
+
+# ============================================================================
+# ADVANCED CONFIGURATION
+# ============================================================================
+
+# Logging configuration (future feature)
+# logging:
+#   level: "info"  # debug, info, warn, error
+#   file: ""       # empty = stdout, or path to log file
+#   format: "text" # text, json
+
+# Template customization (future feature)
+# templates:
+#   custom_instructions: ""  # path to custom instructions file
+#   output_template: ""      # path to custom output template
+
+# Integration settings (future feature)
+# integrations:
+#   slack:
+#     enabled: false
+#     webhook_url: ""
+#   email:
+#     enabled: false
+#     smtp_server: ""
+#     recipients: []
+
+# ============================================================================
+# ENVIRONMENT VARIABLE OVERRIDES
+# ============================================================================
+#
+# You can override any configuration value using environment variables.
+# Use the format: MEETSUM_<SECTION>_<KEY> (uppercase, underscores)
+#
+# Examples:
+#   MEETSUM_PATHS_CUSTOMERS_DIR="/different/path"
+#   MEETSUM_AI_COMMAND="openai"
+#   MEETSUM_FEATURES_TRACE_MODE="true"
+#   MEETSUM_UI_INPUT_NAME_WIDTH="40"
+#
+# Environment variables take precedence over configuration file values.
+
+# ============================================================================
+# VALIDATION NOTES
+# ============================================================================
+#
+# The application will validate:
+# - All specified paths exist and are accessible
+# - The instructions file contains valid content
+# - The AI command is available in PATH
+# - File permissions allow reading transcripts and writing summaries
+#
+# Use 'meetsum check' to validate your configuration.

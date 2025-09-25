@@ -136,17 +136,17 @@ meetsum expects a specific directory structure to properly extract customer name
 ### Example Valid Paths
 
 ```
-✅ /home/user/Documents/Kong/Customers/Acme-Corp/2024-01-15/
-✅ /Users/user/Work/Customers/ZillowGroup/2024-03-20/
-✅ /data/meetings/Customers/Microsoft/2024-12-01/
+✅ /home/user/Documents/Company/Customers/CustomerA/2024-01-15/
+✅ /Users/user/Work/Customers/ClientCorp/2024-03-20/
+✅ /data/meetings/Customers/BusinessInc/2024-12-01/
 ```
 
 ### Example Invalid Paths
 
 ```
-❌ /home/user/meetings/Acme-Corp/2024-01-15/        # Missing "Customers" in path
-❌ /home/user/Documents/Customers/2024-01-15/       # Missing customer name folder
-❌ /home/user/Documents/Customers/Acme Corp/date/   # Spaces in customer name (problematic)
+❌ /home/user/meetings/CustomerA/2024-01-15/         # Missing "Customers" in path
+❌ /home/user/Documents/Customers/2024-01-15/        # Missing customer name folder
+❌ /home/user/Documents/Customers/Client Corp/date/  # Spaces in customer name (problematic)
 ```
 
 ### Output Filename Generation
@@ -155,7 +155,7 @@ The generated summary filename follows this pattern: `{date}-{customer}-cadence-
 
 - `{date}` - Current date in YYYY-MM-DD format (when summary is generated)
 - `{customer}` - Extracted from the directory path structure
-- Example: `2024-01-15-Acme-Corp-cadence-call-summary.md`
+- Example: `2024-01-15-CustomerA-cadence-call-summary.md`
 
 ### Path Configuration
 
