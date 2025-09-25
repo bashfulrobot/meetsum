@@ -90,15 +90,17 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 		config.AppConfig.Features.TraceMode = traceMode
 	}
 
-	// Check dependencies in order of operations
-	brewInstalled := deps.CheckBrewInstalled()
+	// Check dependencies - only gemini-cli is required
 	geminiInstalled := deps.CheckGeminiInstalled()
 
-	if !brewInstalled || !geminiInstalled {
+	if !geminiInstalled {
 		fmt.Println(ui.RenderHeader("🤖 Meeting Summary Generator", "Dependency Check"))
 
-		if !brewInstalled && !geminiInstalled {
-			fmt.Println(ui.RenderError("Both Homebrew and gemini-cli are required but not installed"))
+		brewInstalled := deps.CheckBrewInstalled()
+		if !brewInstalled {
+			// Need to install Homebrew first, then gemini-cli
+			fmt.Println(ui.RenderError("gemini-cli is required but not installed"))
+			fmt.Println(ui.RenderWarning("Homebrew is needed to install gemini-cli"))
 			fmt.Println()
 			fmt.Println(ui.RenderInfo("💡 Installation options:"))
 			fmt.Println(ui.RenderInfo("  • Run 'meetsum install all' to install all dependencies"))
@@ -132,37 +134,10 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 				fmt.Println(ui.RenderSuccess("✅ All dependencies installed! You can now run meetsum again."))
 				return nil
 			} else {
-				return fmt.Errorf("dependencies are required to generate summaries")
+				return fmt.Errorf("gemini-cli is required to generate summaries")
 			}
-		} else if !brewInstalled {
-			fmt.Println(ui.RenderError("Homebrew is required but not installed"))
-			fmt.Println(ui.RenderInfo("gemini-cli requires Homebrew for installation"))
-			fmt.Println()
-			fmt.Println(ui.RenderInfo("💡 Installation options:"))
-			fmt.Println(ui.RenderInfo("  • Run 'meetsum install brew' to install Homebrew"))
-			fmt.Println(ui.RenderInfo("  • Run 'meetsum install all' to install all dependencies"))
-			fmt.Println()
-
-			var installNow bool
-			err := huh.NewConfirm().
-				Title("Would you like to install Homebrew now?").
-				Value(&installNow).
-				Run()
-			if err != nil {
-				return err
-			}
-
-			if installNow {
-				if err := deps.InstallHomebrew(); err != nil {
-					return fmt.Errorf("failed to install Homebrew: %w", err)
-				}
-				fmt.Println()
-				fmt.Println(ui.RenderSuccess("✅ Homebrew installed! Now run 'meetsum install gemini' to complete setup."))
-				return nil
-			} else {
-				return fmt.Errorf("Homebrew is required to install gemini-cli")
-			}
-		} else if !geminiInstalled {
+		} else {
+			// Homebrew available, just need gemini-cli
 			fmt.Println(ui.RenderError("gemini-cli is required but not installed"))
 			fmt.Println()
 			fmt.Println(ui.RenderInfo("💡 Installation options:"))
