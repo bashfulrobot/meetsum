@@ -23,18 +23,10 @@ func runCheck(cmd *cobra.Command, args []string) error {
 
 	allGood := true
 
-	// Check Homebrew
-	fmt.Print("🍺 Homebrew: ")
-	if deps.CheckBrewInstalled() {
-		fmt.Println(ui.RenderSuccess("✅ Installed"))
-	} else {
-		fmt.Println(ui.RenderError("❌ Not installed"))
-		allGood = false
-	}
-
-	// Check gemini-cli
+	// Check gemini-cli (primary requirement)
 	fmt.Print("🤖 gemini-cli: ")
-	if deps.CheckGeminiInstalled() {
+	geminiInstalled := deps.CheckGeminiInstalled()
+	if geminiInstalled {
 		fmt.Println(ui.RenderSuccess("✅ Installed"))
 
 		// Test if gemini is functional
@@ -48,6 +40,17 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Println(ui.RenderError("❌ Not installed"))
 		allGood = false
+	}
+
+	// Check Homebrew (optional - only needed if gemini isn't installed)
+	fmt.Print("🍺 Homebrew: ")
+	brewInstalled := deps.CheckBrewInstalled()
+	if brewInstalled {
+		fmt.Println(ui.RenderSuccess("✅ Installed"))
+	} else if geminiInstalled {
+		fmt.Println(ui.RenderInfo("ℹ️  Not installed (not needed - gemini-cli is already available)"))
+	} else {
+		fmt.Println(ui.RenderWarning("⚠️  Not installed (needed to install gemini-cli)"))
 	}
 
 	// Check other useful tools
