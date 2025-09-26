@@ -172,7 +172,88 @@ TRANSCRIPT:
 		return "", fmt.Errorf("failed to generate summary: %w", err)
 	}
 
-	return result, nil
+	// Clean the AI output to extract only the markdown content
+	cleanedResult := p.cleanAIOutput(result)
+	return cleanedResult, nil
+}
+
+// cleanAIOutput removes error messages and extracts only the markdown content
+func (p *Processor) cleanAIOutput(output string) string {
+	lines := strings.Split(output, "\n")
+	var markdownLines []string
+	inMarkdownBlock := false
+	foundMarkdownStart := false
+
+	for _, line := range lines {
+		// Skip error messages and AI chatter
+		if strings.Contains(line, "Loaded cached credentials") ||
+			strings.Contains(line, "Error executing tool") ||
+			strings.Contains(line, "Tool \"write_file\" not found") ||
+			strings.Contains(line, "I was unable to create") ||
+			strings.Contains(line, "Here is the content") ||
+			strings.Contains(line, "You can save it as") {
+			continue
+		}
+
+		// Look for markdown code blocks
+		if strings.HasPrefix(line, "```markdown") {
+			inMarkdownBlock = true
+			foundMarkdownStart = true
+			continue
+		}
+
+		if strings.HasPrefix(line, "```") && inMarkdownBlock {
+			inMarkdownBlock = false
+			break // End of markdown block
+		}
+
+		// If we're in a markdown block, collect the content
+		if inMarkdownBlock {
+			markdownLines = append(markdownLines, line)
+		}
+
+		// If no markdown block found, but we see content that looks like a summary title
+		if !foundMarkdownStart && strings.Contains(line, "_SUMMARY_") || strings.HasPrefix(line, "*_") {
+			// This looks like the start of the actual summary, collect everything from here
+			markdownLines = append(markdownLines, line)
+			foundMarkdownStart = true
+		} else if foundMarkdownStart && !inMarkdownBlock {
+			// We're collecting content after finding the summary start
+			markdownLines = append(markdownLines, line)
+		}
+	}
+
+	// If we found markdown content, use it
+	if len(markdownLines) > 0 {
+		return strings.TrimSpace(strings.Join(markdownLines, "\n"))
+	}
+
+	// Fallback: try to find content after common AI error patterns
+	cleanedOutput := output
+	errorPatterns := []string{
+		"Loaded cached credentials.",
+		"Error executing tool write_file:",
+		"Tool \"write_file\" not found in registry.",
+		"I was unable to create the file directly.",
+		"Here is the content for the meeting summary.",
+		"You can save it as",
+	}
+
+	for _, pattern := range errorPatterns {
+		if idx := strings.Index(cleanedOutput, pattern); idx != -1 {
+			// Find the end of this line and start from the next line
+			nextLine := strings.Index(cleanedOutput[idx:], "\n")
+			if nextLine != -1 {
+				cleanedOutput = cleanedOutput[idx+nextLine+1:]
+			}
+		}
+	}
+
+	// Remove any remaining markdown code block markers
+	cleanedOutput = strings.ReplaceAll(cleanedOutput, "```markdown", "")
+	cleanedOutput = strings.ReplaceAll(cleanedOutput, "```", "")
+
+	return strings.TrimSpace(cleanedOutput)
 }
 
 // SaveSummary saves the generated summary to a file
