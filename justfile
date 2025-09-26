@@ -27,7 +27,8 @@ default:
     @echo "🔧 Commands with Parameters:"
     @echo "  run [args...]              - Run with arguments (e.g., just run --trace /path/to/meeting)"
     @echo "  build-all [version]        - Build for all platforms (darwin/linux arm64/amd64)"
-    @echo "  release <version>          - Create GitHub release with binaries (e.g., just release v1.0.0)"
+    @echo "  generate-changelog [tag]   - Generate changelog since tag or last release"
+    @echo "  release <version>          - Create GitHub release with binaries and changelog"
     @echo "  lint [fix=false]           - Add fix=true to auto-fix issues"
     @echo ""
     @echo "💡 Pro Tips:"
@@ -134,6 +135,111 @@ build-all version="{{version}}": clean
     echo "✅ All builds complete:"
     ls -la dist/
 
+# Generate changelog from conventional commits since last tag
+[group('prod')]
+generate-changelog since_tag="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Determine the range for changelog generation
+    if [[ -n "{{since_tag}}" ]]; then
+        range="{{since_tag}}..HEAD"
+        echo "📝 Generating changelog since {{since_tag}}..."
+    else
+        # Get the latest tag, or use initial commit if no tags exist
+        latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [[ -n "$latest_tag" ]]; then
+            range="${latest_tag}..HEAD"
+            echo "📝 Generating changelog since ${latest_tag}..."
+        else
+            range="$(git rev-list --max-parents=0 HEAD)..HEAD"
+            echo "📝 Generating changelog from initial commit..."
+        fi
+    fi
+
+    # Generate changelog
+    echo "## Changelog"
+    echo ""
+
+    # Get commits in reverse chronological order
+    commits=$(git log --pretty=format:"%h|%s" --no-merges $range)
+
+    # Initialize sections
+    declare -a features=()
+    declare -a fixes=()
+    declare -a docs=()
+    declare -a build=()
+    declare -a refactor=()
+    declare -a other=()
+
+    # Parse commits and categorize
+    while IFS='|' read -r hash message; do
+        [[ -z "$hash" ]] && continue
+
+        # Extract conventional commit type using simple string matching
+        if [[ "$message" == feat:* ]] || [[ "$message" == feat\(*\):* ]]; then
+            desc=$(echo "$message" | sed 's/^feat[^:]*:[[:space:]]*//')
+            desc=$(echo "$desc" | sed 's/^[^[:alnum:][:space:]]*[[:space:]]*//')
+            features+=("- ${desc} (${hash})")
+        elif [[ "$message" == fix:* ]] || [[ "$message" == fix\(*\):* ]]; then
+            desc=$(echo "$message" | sed 's/^fix[^:]*:[[:space:]]*//')
+            desc=$(echo "$desc" | sed 's/^[^[:alnum:][:space:]]*[[:space:]]*//')
+            fixes+=("- ${desc} (${hash})")
+        elif [[ "$message" == docs:* ]] || [[ "$message" == docs\(*\):* ]]; then
+            desc=$(echo "$message" | sed 's/^docs[^:]*:[[:space:]]*//')
+            desc=$(echo "$desc" | sed 's/^[^[:alnum:][:space:]]*[[:space:]]*//')
+            docs+=("- ${desc} (${hash})")
+        elif [[ "$message" == build:* ]] || [[ "$message" == build\(*\):* ]] || [[ "$message" == ci:* ]] || [[ "$message" == ci\(*\):* ]] || [[ "$message" == chore:* ]] || [[ "$message" == chore\(*\):* ]]; then
+            desc=$(echo "$message" | sed 's/^[^:]*:[[:space:]]*//')
+            desc=$(echo "$desc" | sed 's/^[^[:alnum:][:space:]]*[[:space:]]*//')
+            build+=("- ${desc} (${hash})")
+        elif [[ "$message" == refactor:* ]] || [[ "$message" == refactor\(*\):* ]] || [[ "$message" == perf:* ]] || [[ "$message" == perf\(*\):* ]] || [[ "$message" == style:* ]] || [[ "$message" == style\(*\):* ]]; then
+            desc=$(echo "$message" | sed 's/^[^:]*:[[:space:]]*//')
+            desc=$(echo "$desc" | sed 's/^[^[:alnum:][:space:]]*[[:space:]]*//')
+            refactor+=("- ${desc} (${hash})")
+        else
+            # Non-conventional commit or other types
+            other+=("- ${message} (${hash})")
+        fi
+    done <<< "$commits"
+
+    # Output sections
+    if [[ ${#features[@]} -gt 0 ]]; then
+        echo "### ✨ Features"
+        printf '%s\n' "${features[@]}"
+        echo ""
+    fi
+
+    if [[ ${#fixes[@]} -gt 0 ]]; then
+        echo "### 🐛 Bug Fixes"
+        printf '%s\n' "${fixes[@]}"
+        echo ""
+    fi
+
+    if [[ ${#refactor[@]} -gt 0 ]]; then
+        echo "### ♻️ Code Changes"
+        printf '%s\n' "${refactor[@]}"
+        echo ""
+    fi
+
+    if [[ ${#build[@]} -gt 0 ]]; then
+        echo "### 🔧 Build & CI"
+        printf '%s\n' "${build[@]}"
+        echo ""
+    fi
+
+    if [[ ${#docs[@]} -gt 0 ]]; then
+        echo "### 📝 Documentation"
+        printf '%s\n' "${docs[@]}"
+        echo ""
+    fi
+
+    if [[ ${#other[@]} -gt 0 ]]; then
+        echo "### 🔄 Other Changes"
+        printf '%s\n' "${other[@]}"
+        echo ""
+    fi
+
 # Create a GitHub release with binaries
 [group('prod')]
 release version: (build-all version)
@@ -179,13 +285,17 @@ release version: (build-all version)
     # Build all binaries with the release version
     echo "🔨 Building release binaries..."
 
+    # Generate changelog since last release
+    echo "📝 Generating changelog..."
+    changelog=$(just generate-changelog)
+
     # Create GitHub release
     echo "📦 Creating GitHub release..."
 
-    # Create GitHub release with simple release notes to avoid shell parsing issues
+    # Create GitHub release with generated changelog
     gh release create "{{version}}" \
         --title "{{app_name}} {{version}}" \
-        --notes "Release {{version}} of {{app_name}} - Meeting Summary Generator CLI Tool. Cross-platform binaries for macOS and Linux (Intel/ARM64). See README for installation and usage instructions." \
+        --notes "$changelog" \
         dist/{{app_name}}-darwin-arm64 \
         dist/{{app_name}}-darwin-amd64 \
         dist/{{app_name}}-linux-amd64 \
