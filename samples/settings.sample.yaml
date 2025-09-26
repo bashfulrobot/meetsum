@@ -39,8 +39,9 @@ files:
   pov_input: "pov-input.md"
 
   # Output filename is automatically generated as:
-  # {date}-{customer}-cadence-call-summary.md
-  # where {date} = current date (YYYY-MM-DD) and {customer} = extracted customer name
+  # {date}-{customer}-cadence-call-summary.md (if date found in folder path)
+  # {customer}-cadence-call-summary.md (if no date found in folder path)
+  # where {date} = extracted from folder path (YYYY-MM-DD format) and {customer} = extracted customer name
 
 # ============================================================================
 # AI CONFIGURATION

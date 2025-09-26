@@ -125,6 +125,22 @@ func (p *Processor) ExtractCustomerName() (string, string, error) {
 	return customerNameProper, customerNameUpper, nil
 }
 
+// ExtractDateFromPath extracts date from folder path like "2025-09-24"
+func (p *Processor) ExtractDateFromPath() string {
+	// Look for date pattern YYYY-MM-DD in the path
+	parts := strings.Split(p.meetingDir, "/")
+	for _, part := range parts {
+		// Check if part matches YYYY-MM-DD format
+		if len(part) == 10 && part[4] == '-' && part[7] == '-' {
+			// Validate it's actually a date
+			if _, err := time.Parse("2006-01-02", part); err == nil {
+				return part
+			}
+		}
+	}
+	return "" // No date found in path
+}
+
 // GenerateOutputFilename creates the output filename
 func (p *Processor) GenerateOutputFilename() (string, error) {
 	customerNameProper, _, err := p.ExtractCustomerName()
@@ -132,10 +148,14 @@ func (p *Processor) GenerateOutputFilename() (string, error) {
 		return "", err
 	}
 
-	date := time.Now().Format("2006-01-02")
-	filename := fmt.Sprintf("%s-%s-cadence-call-summary.md", date, customerNameProper)
-
-	return filename, nil
+	date := p.ExtractDateFromPath()
+	if date != "" {
+		filename := fmt.Sprintf("%s-%s-cadence-call-summary.md", date, customerNameProper)
+		return filename, nil
+	} else {
+		filename := fmt.Sprintf("%s-cadence-call-summary.md", customerNameProper)
+		return filename, nil
+	}
 }
 
 // GenerateSummary processes the meeting and generates the summary
@@ -156,15 +176,32 @@ func (p *Processor) GenerateSummary() (string, error) {
 		return "", err
 	}
 
+	// Extract date and customer info for the prompt
+	customerNameProper, customerNameUpper, err := p.ExtractCustomerName()
+	if err != nil {
+		return "", err
+	}
+
+	date := p.ExtractDateFromPath()
+	var titleDate string
+	if date != "" {
+		titleDate = date
+	} else {
+		titleDate = "UNDATED"
+	}
+
 	// Prepare the prompt
 	prompt := fmt.Sprintf(`%s
 
 Process the transcript in transcript.txt and generate a structured meeting summary following the provided instructions. Use the current working directory path to derive the customer name. Write the summary from %s's first-person perspective.
 
+The meeting date should be: %s
+The customer name should be: %s (uppercase: %s)
+
 TRANSCRIPT:
 %s
 
-%s`, instructions, p.userName, transcript, context)
+%s`, instructions, p.userName, titleDate, customerNameProper, customerNameUpper, transcript, context)
 
 	// Execute AI command
 	result, err := script.Echo(prompt).Exec(p.config.AI.Command).String()
