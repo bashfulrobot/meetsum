@@ -193,31 +193,7 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 	// Validate required files
 	if err := processor.ValidateRequiredFiles(); err != nil {
 		fmt.Println(ui.RenderError(err.Error()))
-
-		// Offer to select different directory
-		var tryAgain bool
-		err := huh.NewConfirm().
-			Title("Would you like to select a different directory?").
-			Value(&tryAgain).
-			Run()
-		if err != nil {
-			return err
-		}
-
-		if tryAgain {
-			fmt.Println(ui.RenderInfo("🗂️  Opening file picker..."))
-			meetingDir, err = ui.SelectDirectory(config.AppConfig.Paths.CustomersDir)
-			if err != nil {
-				return err
-			}
-			processor.SetMeetingDir(meetingDir)
-			if err := processor.ValidateRequiredFiles(); err != nil {
-				fmt.Println(ui.RenderError(fmt.Sprintf("Still no %s found. Exiting.", config.AppConfig.Files.Transcript)))
-				return err
-			}
-		} else {
-			return fmt.Errorf("required files not found")
-		}
+		return err
 	}
 
 	// Show summary of found files
@@ -238,47 +214,11 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 		fmt.Println(ui.RenderWarning("No context files found (pov-input.md)"))
 	}
 
-	// Confirm before proceeding
+	// Show processing info
 	fmt.Println()
-	var proceed bool
-	err = huh.NewConfirm().
-		Title("Generate meeting summary?").
-		Value(&proceed).
-		Run()
-	if err != nil {
-		return err
-	}
-
-	if !proceed {
-		fmt.Println(ui.RenderInfo("👋 Operation cancelled"))
-		return nil
-	}
-
-	// Show progress and generate summary
-	fmt.Println()
-	fmt.Println(ui.RenderInfo("🚀 Preparing to generate summary..."))
-
-	// Final confirmation with model info
-	fmt.Println()
-	fmt.Println(ui.RenderInfoBox(
-		"🤖 Model: Gemini Pro",
-		fmt.Sprintf("📍 Working Directory: %s", meetingDir),
-		"⚡ Ready to generate summary",
-	))
-
-	var startProcessing bool
-	err = huh.NewConfirm().
-		Title("Start Gemini Pro processing? (This may take several minutes)").
-		Value(&startProcessing).
-		Run()
-	if err != nil {
-		return err
-	}
-
-	if !startProcessing {
-		fmt.Println(ui.RenderInfo("👋 Operation cancelled"))
-		return nil
-	}
+	fmt.Println("🤖 Model: Gemini Pro")
+	fmt.Printf("📍 Working Directory: %s\n", meetingDir)
+	fmt.Println("⚡ Starting summary generation...")
 
 	// Generate summary with spinner
 	fmt.Println()
