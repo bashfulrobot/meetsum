@@ -74,13 +74,6 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			Default:     "true",
 			Description: "Enable interactive file picker for directory selection",
 		},
-		{
-			Category:    "Features",
-			Setting:     "markdown_preview",
-			Value:       boolToString(config.AppConfig.Features.MarkdownPreview),
-			Default:     "true",
-			Description: "Enable markdown preview after summary generation",
-		},
 	}
 
 	// Display the configuration table

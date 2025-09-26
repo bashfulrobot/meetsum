@@ -10,7 +10,6 @@ import (
 	"github.com/bashfulrobot/meetsum/internal/deps"
 	"github.com/bashfulrobot/meetsum/internal/summary"
 	"github.com/bashfulrobot/meetsum/internal/ui"
-	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
@@ -295,34 +294,14 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Use progress bar for the multi-step operation unless in trace mode
+	// Use spinner for processing unless in trace mode
 	var summary string
 	if config.AppConfig.Features.TraceMode {
 		fmt.Println(ui.RenderInfo("🧠 Gemini Pro is processing your meeting transcript..."))
 		summary, err = processor.GenerateSummary()
 	} else {
-		steps := []string{
-			"Reading transcript file",
-			"Loading AI instructions",
-			"Processing with Gemini Pro",
-			"Generating formatted summary",
-		}
-
-		result, err := ui.RunWithProgress(steps, func(updateProgress func(step int, message string)) (interface{}, error) {
-			updateProgress(0, "Reading transcript and context files")
-			// Small delay to show progress step
-
-			updateProgress(1, "Loading LLM instructions")
-			// Another step
-
-			updateProgress(2, "Sending to Gemini Pro for processing")
-			summary, err := processor.GenerateSummary()
-			if err != nil {
-				return nil, err
-			}
-
-			updateProgress(3, "Formatting and finalizing summary")
-			return summary, nil
+		result, err := ui.RunWithSpinner("🧠 Gemini Pro is processing your meeting transcript...", func() (interface{}, error) {
+			return processor.GenerateSummary()
 		})
 
 		if err != nil {
@@ -355,46 +334,6 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 		fmt.Sprintf("📍 Location: %s", meetingDir),
 	))
 
-	// Offer to view the summary
-	if config.AppConfig.Features.MarkdownPreview {
-		var viewSummary bool
-		err = huh.NewConfirm().
-			Title("Would you like to preview the generated summary?").
-			Value(&viewSummary).
-			Run()
-		if err == nil && viewSummary {
-			fmt.Println(ui.AccentStyle.Render("📖 Summary Preview:"))
-			fmt.Println()
-
-			// Use glamour for markdown rendering
-			renderer, err := glamour.NewTermRenderer(
-				glamour.WithAutoStyle(),
-				glamour.WithWordWrap(80),
-			)
-			if err == nil {
-				rendered, err := renderer.Render(summary)
-				if err == nil {
-					// Limit preview to reasonable length
-					lines := strings.Split(rendered, "\n")
-					if len(lines) > 50 {
-						fmt.Print(strings.Join(lines[:50], "\n"))
-						fmt.Println(ui.WarningStyle.Render("... (truncated - full summary in file)"))
-					} else {
-						fmt.Print(rendered)
-					}
-				} else {
-					// Fallback to plain text
-					lines := strings.Split(summary, "\n")
-					if len(lines) > 50 {
-						fmt.Println(strings.Join(lines[:50], "\n"))
-						fmt.Println(ui.WarningStyle.Render("... (truncated - full summary in file)"))
-					} else {
-						fmt.Println(summary)
-					}
-				}
-			}
-		}
-	}
 
 	fmt.Println()
 	fmt.Println(ui.RenderSuccess("🎉 All done! Your meeting summary is ready."))

@@ -25,9 +25,8 @@ type Config struct {
 	} `mapstructure:"ai"`
 
 	Features struct {
-		TraceMode       bool `mapstructure:"trace_mode"`
-		FileBrowser     bool `mapstructure:"file_browser"`
-		MarkdownPreview bool `mapstructure:"markdown_preview"`
+		TraceMode   bool `mapstructure:"trace_mode"`
+		FileBrowser bool `mapstructure:"file_browser"`
 	} `mapstructure:"features"`
 
 }
@@ -55,7 +54,6 @@ func LoadConfig() error {
 	viper.SetDefault("ai.command", "gemini")
 	viper.SetDefault("features.trace_mode", false)
 	viper.SetDefault("features.file_browser", true)
-	viper.SetDefault("features.markdown_preview", true)
 
 	// Try to read config file
 	if err := viper.ReadInConfig(); err != nil {

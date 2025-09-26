@@ -71,10 +71,6 @@ features:
   # When false, requires explicit directory path input via text prompt
   file_browser: true
 
-  # Enable markdown preview after summary generation
-  # When true, offers to display the generated summary in the terminal
-  # Uses the glamour library for rich markdown rendering
-  markdown_preview: true
 
 # ============================================================================
 # ADVANCED CONFIGURATION
