@@ -10,8 +10,8 @@ A modern Go CLI application that transforms meeting transcripts into structured 
 ## ✨ Features
 
 - 🎯 **AI-Powered Summaries** - Uses Google Gemini Pro to generate structured meeting summaries
-- 📁 **Intelligent File Detection** - Automatically finds transcripts and context files
-- 🎨 **Beautiful Terminal UI** - Modern interface with forms, styling, and markdown preview
+- 📁 **Interactive File Picker** - Visual directory navigation with automatic transcript detection
+- 🎨 **Beautiful Terminal UI** - Modern interface with forms, spinners, styling, and markdown preview
 - ⚙️ **YAML Configuration** - Flexible configuration system with sensible defaults
 - 🔧 **Dependency Management** - Built-in installation and validation of required tools
 - 🚀 **Cross-Platform** - Builds for macOS, Linux (Intel/ARM)

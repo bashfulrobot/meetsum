@@ -71,6 +71,10 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		fmt.Println(ui.RenderInfo("💡 Run 'meetsum install all' to install missing dependencies"))
 	}
 
+	// Show configuration overview table
+	fmt.Println()
+	fmt.Println(ui.RenderInfo("📊 Use 'meetsum config' to view detailed configuration"))
+
 	return nil
 }
 

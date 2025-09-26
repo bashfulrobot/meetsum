@@ -206,7 +206,8 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 		}
 
 		if tryAgain {
-			meetingDir, err = selectDirectory(config.AppConfig.Paths.CustomersDir)
+			fmt.Println(ui.RenderInfo("🗂️  Opening file picker..."))
+			meetingDir, err = ui.SelectDirectory(config.AppConfig.Paths.CustomersDir)
 			if err != nil {
 				return err
 			}
@@ -280,9 +281,7 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Generate summary
-	fmt.Println()
-	fmt.Println(ui.RenderInfo("🧠 Gemini Pro is processing your meeting transcript..."))
+	// Generate summary with spinner
 	fmt.Println()
 
 	// Change to meeting directory for proper path context
@@ -296,7 +295,42 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	summary, err := processor.GenerateSummary()
+	// Use progress bar for the multi-step operation unless in trace mode
+	var summary string
+	if config.AppConfig.Features.TraceMode {
+		fmt.Println(ui.RenderInfo("🧠 Gemini Pro is processing your meeting transcript..."))
+		summary, err = processor.GenerateSummary()
+	} else {
+		steps := []string{
+			"Reading transcript file",
+			"Loading AI instructions",
+			"Processing with Gemini Pro",
+			"Generating formatted summary",
+		}
+
+		result, err := ui.RunWithProgress(steps, func(updateProgress func(step int, message string)) (interface{}, error) {
+			updateProgress(0, "Reading transcript and context files")
+			// Small delay to show progress step
+
+			updateProgress(1, "Loading LLM instructions")
+			// Another step
+
+			updateProgress(2, "Sending to Gemini Pro for processing")
+			summary, err := processor.GenerateSummary()
+			if err != nil {
+				return nil, err
+			}
+
+			updateProgress(3, "Formatting and finalizing summary")
+			return summary, nil
+		})
+
+		if err != nil {
+			return err
+		}
+		summary = result.(string)
+	}
+
 	if err != nil {
 		fmt.Println(ui.RenderError(fmt.Sprintf("Failed to generate summary: %v", err)))
 		return err
@@ -401,12 +435,15 @@ func getMeetingDirectory() (string, error) {
 	}
 
 	fmt.Println(ui.RenderInfo("📁 Enter the meeting directory path:"))
-	fmt.Println(ui.SecondaryStyle.Render("   (or press Enter to use file browser)"))
+	if config.AppConfig.Features.FileBrowser {
+		fmt.Println(ui.SecondaryStyle.Render("   (or press Enter for guided selection)"))
+	}
 
 	var inputPath string
 	err := huh.NewInput().
 		Title("Meeting Directory Path").
-		Placeholder("/path/to/Customers/[Customer]/[date]").
+		Description("Directory should contain transcript.txt").
+		Placeholder("~/Documents/Customers/[Customer]/[date] or press Enter").
 		Value(&inputPath).
 		Run()
 
@@ -416,10 +453,10 @@ func getMeetingDirectory() (string, error) {
 
 	inputPath = strings.TrimSpace(inputPath)
 
-	// If no path entered and file browser is enabled, use it
+	// If no path entered and file browser is enabled, use file picker
 	if inputPath == "" && config.AppConfig.Features.FileBrowser {
-		fmt.Println(ui.RenderInfo("🗂️  Opening file browser..."))
-		return selectDirectory(config.AppConfig.Paths.CustomersDir)
+		fmt.Println(ui.RenderInfo("🗂️  Opening file picker..."))
+		return ui.SelectDirectory(config.AppConfig.Paths.CustomersDir)
 	}
 
 	if inputPath == "" {
@@ -434,29 +471,3 @@ func getMeetingDirectory() (string, error) {
 	return inputPath, nil
 }
 
-func selectDirectory(startDir string) (string, error) {
-	// This is a simplified file browser - in a full implementation,
-	// you might want to use a more sophisticated directory picker
-	var selectedDir string
-	err := huh.NewInput().
-		Title("Select Directory").
-		Description("Enter the full path to the meeting directory").
-		Placeholder(startDir).
-		Value(&selectedDir).
-		Validate(func(s string) error {
-			if strings.TrimSpace(s) == "" {
-				return fmt.Errorf("directory path is required")
-			}
-			if _, err := os.Stat(s); os.IsNotExist(err) {
-				return fmt.Errorf("directory does not exist")
-			}
-			return nil
-		}).
-		Run()
-
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(selectedDir), nil
-}

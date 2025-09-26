@@ -66,9 +66,9 @@ features:
   # Can be overridden with --trace command line flag
   trace_mode: false
 
-  # Enable file browser when no meeting directory is provided
-  # When true, shows a directory picker if no path is given
-  # When false, requires explicit directory path input
+  # Enable interactive file picker when no meeting directory is provided
+  # When true, opens a visual directory picker using bubbles filepicker
+  # When false, requires explicit directory path input via text prompt
   file_browser: true
 
   # Enable markdown preview after summary generation
