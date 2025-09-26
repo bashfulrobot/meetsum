@@ -26,7 +26,8 @@ default:
     @echo ""
     @echo "🔧 Commands with Parameters:"
     @echo "  run [args...]              - Run with arguments (e.g., just run --trace /path/to/meeting)"
-    @echo "  build-all                  - Build for all platforms (darwin/linux arm64/amd64)"
+    @echo "  build-all [version]        - Build for all platforms (darwin/linux arm64/amd64)"
+    @echo "  release <version>          - Create GitHub release with binaries (e.g., just release v1.0.0)"
     @echo "  lint [fix=false]           - Add fix=true to auto-fix issues"
     @echo ""
     @echo "💡 Pro Tips:"
@@ -92,11 +93,17 @@ test-coverage:
 # === Production Commands ===
 # Build for all platforms
 [group('prod')]
-build-all: clean
+build-all version="{{version}}": clean
     #!/usr/bin/env bash
     set -euo pipefail
     echo "🏗️  Building {{app_name}} for all platforms..."
     mkdir -p dist
+
+    # Use provided version or default to git describe
+    build_version="{{version}}"
+    if [[ "{{version}}" == "dev" || -z "{{version}}" ]]; then
+        build_version="{{version}}"
+    fi
 
     platforms=(
         "darwin/arm64"
@@ -111,13 +118,81 @@ build-all: clean
         output="dist/{{app_name}}-${GOOS}-${GOARCH}"
 
         echo "Building for ${GOOS}/${GOARCH}..."
-        CC=clang GOOS=$GOOS GOARCH=$GOARCH go build \
-            -ldflags="-X main.Version={{version}} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" \
-            -o "$output"
+
+        # Use CGO_ENABLED=0 for ARM64 builds to avoid assembly issues
+        if [[ "$GOARCH" == "arm64" ]]; then
+            CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
+                -ldflags="-X main.Version=${build_version} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" \
+                -o "$output"
+        else
+            CC=clang GOOS=$GOOS GOARCH=$GOARCH go build \
+                -ldflags="-X main.Version=${build_version} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" \
+                -o "$output"
+        fi
     done
 
     echo "✅ All builds complete:"
     ls -la dist/
+
+# Create a GitHub release with binaries
+[group('prod')]
+release version: (build-all version)
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [[ -z "{{version}}" ]]; then
+        echo "❌ Version argument required. Usage: just release v1.0.0"
+        exit 1
+    fi
+
+    echo "🚀 Creating release {{version}}..."
+
+    # Validate version format
+    if [[ ! "{{version}}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "❌ Version must be in format v1.0.0"
+        exit 1
+    fi
+
+    # Check if tag already exists
+    if git tag -l | grep -q "^{{version}}$"; then
+        echo "❌ Tag {{version}} already exists"
+        exit 1
+    fi
+
+    # Verify gh CLI is available
+    if ! command -v gh >/dev/null 2>&1; then
+        echo "❌ gh CLI not found. Install with: brew install gh"
+        exit 1
+    fi
+
+    # Verify we're authenticated with gh
+    if ! gh auth status >/dev/null 2>&1; then
+        echo "❌ Not authenticated with GitHub. Run: gh auth login"
+        exit 1
+    fi
+
+    # Create and push git tag
+    echo "📝 Creating git tag {{version}}..."
+    git tag -a "{{version}}" -m "Release {{version}}"
+    git push origin "{{version}}"
+
+    # Build all binaries with the release version
+    echo "🔨 Building release binaries..."
+
+    # Create GitHub release
+    echo "📦 Creating GitHub release..."
+
+    # Create GitHub release with simple release notes to avoid shell parsing issues
+    gh release create "{{version}}" \
+        --title "{{app_name}} {{version}}" \
+        --notes "Release {{version}} of {{app_name}} - Meeting Summary Generator CLI Tool. Cross-platform binaries for macOS and Linux (Intel/ARM64). See README for installation and usage instructions." \
+        dist/{{app_name}}-darwin-arm64 \
+        dist/{{app_name}}-darwin-amd64 \
+        dist/{{app_name}}-linux-amd64 \
+        dist/{{app_name}}-linux-arm64
+
+    echo "✅ Release {{version}} created successfully!"
+    echo "🔗 View at: $(gh release view {{version}} --json url --jq .url)"
 
 # Install locally
 [group('prod')]
