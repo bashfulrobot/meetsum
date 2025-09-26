@@ -39,19 +39,6 @@ func (m filePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			m.quitting = true
 			return m, tea.Quit
-		case "enter":
-			// Check if selected path is a directory and contains the configured transcript file
-			if m.filepicker.CurrentDirectory != "" {
-				transcriptPath := filepath.Join(m.filepicker.CurrentDirectory, m.transcriptFile)
-				if _, err := os.Stat(transcriptPath); err == nil {
-					m.selectedPath = m.filepicker.CurrentDirectory
-					m.quitting = true
-					return m, tea.Quit
-				} else {
-					m.err = fmt.Errorf("directory must contain %s", m.transcriptFile)
-					return m, clearErrorAfter()
-				}
-			}
 		}
 	case clearErrorMsg:
 		m.err = nil
@@ -60,20 +47,32 @@ func (m filePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.filepicker, cmd = m.filepicker.Update(msg)
 
-	// Did the user select a file?
+	// Did the user select a file or directory?
 	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
-		// Get the directory of the selected file
-		dir := filepath.Dir(path)
-		transcriptPath := filepath.Join(dir, m.transcriptFile)
-
-		// Check if the directory contains the configured transcript file
-		if _, err := os.Stat(transcriptPath); err == nil {
-			m.selectedPath = dir
-			m.quitting = true
-			return m, tea.Quit
+		// Check if the selected path is a directory
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			// Selected a directory - check if it contains the transcript file
+			transcriptPath := filepath.Join(path, m.transcriptFile)
+			if _, err := os.Stat(transcriptPath); err == nil {
+				m.selectedPath = path
+				m.quitting = true
+				return m, tea.Quit
+			} else {
+				m.err = fmt.Errorf("directory must contain %s", m.transcriptFile)
+				return m, clearErrorAfter()
+			}
 		} else {
-			m.err = fmt.Errorf("selected directory must contain %s", m.transcriptFile)
-			return m, clearErrorAfter()
+			// Selected a file - check the parent directory
+			dir := filepath.Dir(path)
+			transcriptPath := filepath.Join(dir, m.transcriptFile)
+			if _, err := os.Stat(transcriptPath); err == nil {
+				m.selectedPath = dir
+				m.quitting = true
+				return m, tea.Quit
+			} else {
+				m.err = fmt.Errorf("selected directory must contain %s", m.transcriptFile)
+				return m, clearErrorAfter()
+			}
 		}
 	}
 
@@ -119,10 +118,18 @@ func SelectDirectory(startPath string) (string, error) {
 	fp.ShowHidden = false
 	fp.DirAllowed = true
 	fp.FileAllowed = true
+	fp.ShowPermissions = false
+	fp.ShowSize = false
+
+	// Get transcript filename from config with fallback
+	transcriptFile := "transcript.txt" // default fallback
+	if config.AppConfig != nil && config.AppConfig.Files.Transcript != "" {
+		transcriptFile = config.AppConfig.Files.Transcript
+	}
 
 	m := filePickerModel{
 		filepicker:     fp,
-		transcriptFile: config.AppConfig.Files.Transcript,
+		transcriptFile: transcriptFile,
 	}
 
 	p := tea.NewProgram(&m, tea.WithAltScreen())
@@ -131,9 +138,15 @@ func SelectDirectory(startPath string) (string, error) {
 		return "", err
 	}
 
-	if m, ok := finalModel.(*filePickerModel); ok {
-		if m.selectedPath != "" {
-			return m.selectedPath, nil
+	// Try different casting approaches for the final model
+	switch fm := finalModel.(type) {
+	case *filePickerModel:
+		if fm.selectedPath != "" {
+			return fm.selectedPath, nil
+		}
+	case filePickerModel:
+		if fm.selectedPath != "" {
+			return fm.selectedPath, nil
 		}
 	}
 

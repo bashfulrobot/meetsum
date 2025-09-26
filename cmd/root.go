@@ -213,7 +213,7 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 			}
 			processor.SetMeetingDir(meetingDir)
 			if err := processor.ValidateRequiredFiles(); err != nil {
-				fmt.Println(ui.RenderError("Still no transcript.txt found. Exiting."))
+				fmt.Println(ui.RenderError(fmt.Sprintf("Still no %s found. Exiting.", config.AppConfig.Files.Transcript)))
 				return err
 			}
 		} else {
