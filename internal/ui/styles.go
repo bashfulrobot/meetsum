@@ -45,8 +45,6 @@ var (
 
 	InfoBoxStyle = lipgloss.NewStyle().
 			Foreground(InfoColor).
-			BorderStyle(lipgloss.RoundedBorder()).
-			Padding(1, 2).
 			Margin(1, 0)
 
 	FileListStyle = lipgloss.NewStyle().
