@@ -1,9 +1,8 @@
 # meetsum Go CLI Project
 # Meeting Summary Generator
 #
-# Note: This project requires CGO due to some dependencies.
-# Ensure you have a C compiler (gcc, clang) installed.
-# For clang users, set CC=clang before running build commands.
+# Note: Production builds use CGO_ENABLED=0 for static binaries.
+# Development builds may use CGO for faster compilation.
 
 # === Settings ===
 set dotenv-load := true
@@ -120,16 +119,11 @@ build-all version="{{version}}": clean
 
         echo "Building for ${GOOS}/${GOARCH}..."
 
-        # Use CGO_ENABLED=0 for ARM64 builds to avoid assembly issues
-        if [[ "$GOARCH" == "arm64" ]]; then
-            CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
-                -ldflags="-X main.Version=${build_version} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" \
-                -o "$output"
-        else
-            CC=clang GOOS=$GOOS GOARCH=$GOARCH go build \
-                -ldflags="-X main.Version=${build_version} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" \
-                -o "$output"
-        fi
+        # Use CGO_ENABLED=0 for all builds to create statically linked binaries
+        # This ensures binaries work on all Linux distros including NixOS
+        CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build \
+            -ldflags="-X main.Version=${build_version} -X main.BuildTime={{build_time}} -X main.GitCommit={{git_commit}}" \
+            -o "$output"
     done
 
     echo "✅ All builds complete:"
