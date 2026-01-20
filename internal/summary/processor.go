@@ -250,7 +250,7 @@ func (p *Processor) cleanAIOutput(output string) string {
 		}
 
 		// If no markdown block found, but we see content that looks like a summary title
-		if !foundMarkdownStart && strings.Contains(line, "_SUMMARY_") || strings.HasPrefix(line, "*_") {
+		if !inMarkdownBlock && !foundMarkdownStart && (strings.Contains(line, "_SUMMARY_") || strings.HasPrefix(line, "*_")) {
 			// This looks like the start of the actual summary, collect everything from here
 			markdownLines = append(markdownLines, line)
 			foundMarkdownStart = true
