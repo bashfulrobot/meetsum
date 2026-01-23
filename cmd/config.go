@@ -20,10 +20,10 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	configItems := []ui.ConfigItem{
 		{
 			Category:    "Paths",
-			Setting:     "customers_dir",
-			Value:       config.AppConfig.Paths.CustomersDir,
+			Setting:     "file_browser_root_dir",
+			Value:       config.AppConfig.Paths.FileBrowserRootDir,
 			Default:     "~/Documents/Company/Customers",
-			Description: "Base directory for customer meeting folders",
+			Description: "Root directory for the file browser",
 		},
 		{
 			Category:    "Paths",

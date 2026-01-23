@@ -10,9 +10,9 @@ import (
 // Config represents the application configuration
 type Config struct {
 	Paths struct {
-		CustomersDir     string `mapstructure:"customers_dir"`
-		AutomationDir    string `mapstructure:"automation_dir"`
-		InstructionsFile string `mapstructure:"instructions_file"`
+		FileBrowserRootDir string `mapstructure:"file_browser_root_dir"`
+		AutomationDir         string `mapstructure:"automation_dir"`
+		InstructionsFile      string `mapstructure:"instructions_file"`
 	} `mapstructure:"paths"`
 
 	Files struct {
@@ -46,7 +46,7 @@ func LoadConfig() error {
 	viper.AddConfigPath("/etc/meetsum")
 
 	// Set defaults
-	viper.SetDefault("paths.customers_dir", filepath.Join(os.Getenv("HOME"), "Documents", "Company", "Customers"))
+	viper.SetDefault("paths.file_browser_root_dir", filepath.Join(os.Getenv("HOME"), "Documents", "Company", "Customers"))
 	viper.SetDefault("paths.automation_dir", filepath.Join(os.Getenv("HOME"), "Documents", "Company", "automation", "summaries"))
 	viper.SetDefault("paths.instructions_file", "Meeting-summary-llm-instructions.md")
 	viper.SetDefault("files.transcript", "transcript.txt")

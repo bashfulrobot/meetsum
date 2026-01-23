@@ -322,29 +322,10 @@ func getMeetingDirectory() (string, error) {
 		return absPath, nil
 	}
 
-	fmt.Println(ui.RenderInfo("📁 Enter the meeting directory path:"))
+	// If file browser is enabled, go directly to file picker
 	if config.AppConfig.Features.FileBrowser {
-		fmt.Println(ui.SecondaryStyle.Render("   (or press Enter for guided selection)"))
-	}
-
-	var inputPath string
-	err := huh.NewInput().
-		Title("Meeting Directory Path").
-		Description("Directory should contain transcript.txt").
-		Placeholder("~/Documents/Customers/[Customer]/[date] or press Enter").
-		Value(&inputPath).
-		Run()
-
-	if err != nil {
-		return "", err
-	}
-
-	inputPath = strings.TrimSpace(inputPath)
-
-	// If no path entered and file browser is enabled, use file picker
-	if inputPath == "" && config.AppConfig.Features.FileBrowser {
-		fmt.Println(ui.RenderInfo("🗂️  Opening file picker..."))
-		selectedPath, err := ui.SelectDirectory(config.AppConfig.Paths.CustomersDir)
+		startDir := expandPath(config.AppConfig.Paths.FileBrowserRootDir)
+		selectedPath, err := ui.SelectDirectory(startDir)
 		if err != nil {
 			return "", err
 		}
@@ -356,8 +337,25 @@ func getMeetingDirectory() (string, error) {
 		return absPath, nil
 	}
 
+	// File browser disabled - prompt for manual path entry
+	fmt.Println(ui.RenderInfo("📁 Enter the meeting directory path:"))
+
+	var inputPath string
+	err := huh.NewInput().
+		Title("Meeting Directory Path").
+		Description("Directory should contain transcript.txt").
+		Placeholder("~/Documents/Customers/[Customer]/[date]").
+		Value(&inputPath).
+		Run()
+
+	if err != nil {
+		return "", err
+	}
+
+	inputPath = strings.TrimSpace(inputPath)
+
 	if inputPath == "" {
-		return "", fmt.Errorf("no directory selected")
+		return "", fmt.Errorf("no directory path provided")
 	}
 
 	// Expand ~ to home directory

@@ -12,10 +12,10 @@
 # PATH CONFIGURATION
 # ============================================================================
 paths:
-  # Base directory where customer meeting folders are stored
-  # This should point to your main customers directory
+  # Root directory for the file browser
+  # This is where the file browser will start when selecting meeting folders
   # Example structure: /path/to/Customers/CustomerName/2024-01-15/
-  customers_dir: "/home/user/Documents/Company/Customers"
+  file_browser_root_dir: "/home/user/Documents/Company/Customers"
 
   # Directory containing the LLM instructions markdown file
   # This directory should contain the Meeting-summary-llm-instructions.md file
@@ -106,7 +106,7 @@ features:
 # Use the format: MEETSUM_<SECTION>_<KEY> (uppercase, underscores)
 #
 # Examples:
-#   MEETSUM_PATHS_CUSTOMERS_DIR="/different/path"
+#   MEETSUM_PATHS_FILE_BROWSER_ROOT_FOLDER="/different/path"
 #   MEETSUM_AI_COMMAND="openai"
 #   MEETSUM_FEATURES_TRACE_MODE="true"
 #   MEETSUM_UI_INPUT_NAME_WIDTH="40"

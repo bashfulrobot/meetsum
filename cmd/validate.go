@@ -107,10 +107,10 @@ func validateConfiguration() error {
 			Description: "AI instructions for summary generation",
 		},
 		{
-			File:        "Customers Directory",
+			File:        "File Browser Root",
 			Required:    true,
-			Path:        config.AppConfig.Paths.CustomersDir,
-			Description: "Base directory for customer meeting folders",
+			Path:        config.AppConfig.Paths.FileBrowserRootDir,
+			Description: "Root directory for the file browser",
 		},
 		{
 			File:        "Automation Directory",

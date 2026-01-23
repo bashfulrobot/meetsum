@@ -18,6 +18,24 @@ A modern Go CLI application that transforms meeting transcripts into structured 
 - 📖 **Integrated Documentation** - Quick access to setup guides and documentation
 - 🔒 **Security-Conscious** - Clear warnings for any external script execution
 
+## ⚠️ Breaking Changes
+
+### Configuration Rename (v0.x.x)
+
+The configuration setting `customers_dir` has been renamed to `file_browser_root_dir` for clarity.
+
+**Migration**: Update your `settings.yaml`:
+
+```yaml
+# Before
+paths:
+  customers_dir: "/path/to/your/Customers"
+
+# After
+paths:
+  file_browser_root_dir: "/path/to/your/Customers"
+```
+
 ## 🚀 Quick Start
 
 ### 1. Install meetsum
@@ -165,7 +183,7 @@ You can customize the base paths in your configuration file:
 
 ```yaml
 paths:
-  customers_dir: "/your/path/to/Customers"
+  file_browser_root_dir: "/your/path/to/Customers"
   automation_dir: "/your/path/to/automation/summaries"
 
 files:
@@ -187,7 +205,7 @@ meetsum uses YAML configuration files. It searches for settings files in this or
 ```yaml
 # settings.yaml
 paths:
-  customers_dir: "/path/to/your/Customers"
+  file_browser_root_dir: "/path/to/your/Customers"
   automation_dir: "/path/to/automation/summaries"
   instructions_file: "Meeting-summary-llm-instructions.md"
 
