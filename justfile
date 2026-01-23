@@ -138,16 +138,16 @@ generate-changelog since_tag="":
     # Determine the range for changelog generation
     if [[ -n "{{since_tag}}" ]]; then
         range="{{since_tag}}..HEAD"
-        echo "📝 Generating changelog since {{since_tag}}..."
+        echo "📝 Generating changelog since {{since_tag}}..." >&2
     else
         # Get the latest tag, or use initial commit if no tags exist
         latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
         if [[ -n "$latest_tag" ]]; then
             range="${latest_tag}..HEAD"
-            echo "📝 Generating changelog since ${latest_tag}..."
+            echo "📝 Generating changelog since ${latest_tag}..." >&2
         else
             range="$(git rev-list --max-parents=0 HEAD)..HEAD"
-            echo "📝 Generating changelog from initial commit..."
+            echo "📝 Generating changelog from initial commit..." >&2
         fi
     fi
 
@@ -278,9 +278,9 @@ release version: (build-all version)
     # Generate changelog since last release BEFORE creating new tag
     echo "📝 Generating changelog..."
     if [[ -n "$previous_tag" ]]; then
-        changelog=$(just generate-changelog "$previous_tag")
+        changelog=$(just generate-changelog "$previous_tag" 2>/dev/null)
     else
-        changelog=$(just generate-changelog)
+        changelog=$(just generate-changelog 2>/dev/null)
     fi
 
     # Create and push git tag
