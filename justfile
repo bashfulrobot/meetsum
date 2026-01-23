@@ -271,17 +271,22 @@ release version: (build-all version)
         exit 1
     fi
 
+    # Capture previous tag BEFORE creating the new one (for changelog generation)
+    previous_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    echo "📋 Previous tag: ${previous_tag:-"(none)"}"
+
+    # Generate changelog since last release BEFORE creating new tag
+    echo "📝 Generating changelog..."
+    if [[ -n "$previous_tag" ]]; then
+        changelog=$(just generate-changelog "$previous_tag")
+    else
+        changelog=$(just generate-changelog)
+    fi
+
     # Create and push git tag
     echo "📝 Creating git tag {{version}}..."
     git tag -a "{{version}}" -m "Release {{version}}"
     git push origin "{{version}}"
-
-    # Build all binaries with the release version
-    echo "🔨 Building release binaries..."
-
-    # Generate changelog since last release
-    echo "📝 Generating changelog..."
-    changelog=$(just generate-changelog)
 
     # Create GitHub release
     echo "📦 Creating GitHub release..."
