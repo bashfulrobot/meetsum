@@ -306,11 +306,20 @@ func getUserName() (string, error) {
 
 func getMeetingDirectory() (string, error) {
 	if meetingDir != "" {
+		// Expand ~ to home directory
+		expandedDir := expandPath(meetingDir)
+
 		// Validate provided directory
-		if _, err := os.Stat(meetingDir); os.IsNotExist(err) {
+		if _, err := os.Stat(expandedDir); os.IsNotExist(err) {
 			return "", fmt.Errorf("directory '%s' does not exist", meetingDir)
 		}
-		return meetingDir, nil
+
+		// Convert to absolute path for proper metadata extraction
+		absPath, err := filepath.Abs(expandedDir)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve absolute path: %w", err)
+		}
+		return absPath, nil
 	}
 
 	fmt.Println(ui.RenderInfo("📁 Enter the meeting directory path:"))
@@ -335,18 +344,47 @@ func getMeetingDirectory() (string, error) {
 	// If no path entered and file browser is enabled, use file picker
 	if inputPath == "" && config.AppConfig.Features.FileBrowser {
 		fmt.Println(ui.RenderInfo("🗂️  Opening file picker..."))
-		return ui.SelectDirectory(config.AppConfig.Paths.CustomersDir)
+		selectedPath, err := ui.SelectDirectory(config.AppConfig.Paths.CustomersDir)
+		if err != nil {
+			return "", err
+		}
+		// File picker returns paths that should already be absolute, but ensure it
+		absPath, err := filepath.Abs(selectedPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve absolute path: %w", err)
+		}
+		return absPath, nil
 	}
 
 	if inputPath == "" {
 		return "", fmt.Errorf("no directory selected")
 	}
 
+	// Expand ~ to home directory
+	expandedPath := expandPath(inputPath)
+
 	// Validate the directory
-	if _, err := os.Stat(inputPath); os.IsNotExist(err) {
+	if _, err := os.Stat(expandedPath); os.IsNotExist(err) {
 		return "", fmt.Errorf("directory '%s' does not exist", inputPath)
 	}
 
-	return inputPath, nil
+	// Convert to absolute path for proper metadata extraction
+	absPath, err := filepath.Abs(expandedPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
+	}
+
+	return absPath, nil
+}
+
+// expandPath expands ~ to the user's home directory
+func expandPath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(homeDir, path[2:])
+		}
+	}
+	return path
 }
 
