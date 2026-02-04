@@ -1,9 +1,12 @@
 package summary
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,10 +16,11 @@ import (
 )
 
 type Processor struct {
-	config     *config.Config
-	logger     *log.Logger
-	userName   string
-	meetingDir string
+	config         *config.Config
+	logger         *log.Logger
+	userName       string
+	meetingDir     string
+	transcriptPath string
 }
 
 // NewProcessor creates a new summary processor
@@ -37,13 +41,47 @@ func (p *Processor) SetMeetingDir(dir string) {
 	p.meetingDir = dir
 }
 
+// FindTranscriptFile locates the transcript file in the meeting directory.
+// It first looks for the standard transcript.txt, then falls back to
+// finding dated transcripts matching YYYY-MM-DD-transcript.txt pattern.
+func (p *Processor) FindTranscriptFile() (string, error) {
+	// First, try the default transcript.txt
+	defaultPath := p.config.GetTranscriptPath(p.meetingDir)
+	if _, err := os.Stat(defaultPath); err == nil {
+		return defaultPath, nil
+	}
+
+	// If not found, look for dated transcript files (YYYY-MM-DD-transcript.txt)
+	pattern := filepath.Join(p.meetingDir, "*-transcript.txt")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", fmt.Errorf("failed to search for transcript files: %w", err)
+	}
+
+	// Filter matches to only include valid date-prefixed files
+	datePattern := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-transcript\.txt$`)
+	for _, match := range matches {
+		filename := filepath.Base(match)
+		if datePattern.MatchString(filename) {
+			// Validate it's a real date
+			datePart := filename[:10] // YYYY-MM-DD
+			if _, err := time.Parse("2006-01-02", datePart); err == nil {
+				return match, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no transcript file found in %s (looked for transcript.txt and YYYY-MM-DD-transcript.txt)", p.meetingDir)
+}
+
 // ValidateRequiredFiles checks if all required files exist
 func (p *Processor) ValidateRequiredFiles() error {
-	// Check transcript file
-	transcriptPath := p.config.GetTranscriptPath(p.meetingDir)
-	if _, err := os.Stat(transcriptPath); os.IsNotExist(err) {
-		return fmt.Errorf("transcript.txt not found in %s", p.meetingDir)
+	// Find and validate transcript file
+	transcriptPath, err := p.FindTranscriptFile()
+	if err != nil {
+		return err
 	}
+	p.transcriptPath = transcriptPath
 
 	// Check instructions file
 	instructionsPath := p.config.GetInstructionsPath()
@@ -76,8 +114,10 @@ func (p *Processor) LoadInstructions() (string, error) {
 
 // LoadTranscript reads the transcript file
 func (p *Processor) LoadTranscript() (string, error) {
-	transcriptPath := p.config.GetTranscriptPath(p.meetingDir)
-	content, err := script.File(transcriptPath).String()
+	if p.transcriptPath == "" {
+		return "", fmt.Errorf("transcript path not set; call ValidateRequiredFiles first")
+	}
+	content, err := script.File(p.transcriptPath).String()
 	if err != nil {
 		return "", fmt.Errorf("failed to load transcript: %w", err)
 	}
@@ -203,15 +243,43 @@ TRANSCRIPT:
 
 %s`, instructions, p.userName, titleDate, customerNameProper, customerNameUpper, transcript, context)
 
-	// Execute AI command
-	result, err := script.Echo(prompt).Exec(p.config.AI.Command).String()
+	// Execute AI command with separate stdout/stderr capture
+	result, stderr, err := p.executeAICommand(prompt)
 	if err != nil {
+		p.logCommandError(stderr, err)
 		return "", fmt.Errorf("failed to generate summary: %w", err)
 	}
 
 	// Clean the AI output to extract only the markdown content
 	cleanedResult := p.cleanAIOutput(result)
 	return cleanedResult, nil
+}
+
+// executeAICommand runs the AI command and captures stdout/stderr separately
+func (p *Processor) executeAICommand(prompt string) (stdout string, stderr string, err error) {
+	cmd := exec.Command(p.config.AI.Command)
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdin = strings.NewReader(prompt)
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	err = cmd.Run()
+	return stdoutBuf.String(), stderrBuf.String(), err
+}
+
+// logCommandError logs the command error with full context
+func (p *Processor) logCommandError(stderr string, err error) {
+	if p.logger == nil {
+		return
+	}
+
+	p.logger.Error("AI command failed",
+		"command", p.config.AI.Command,
+		"error", err.Error(),
+		"stderr", strings.TrimSpace(stderr),
+		"meeting_dir", p.meetingDir,
+	)
 }
 
 // cleanAIOutput removes error messages and extracts only the markdown content
@@ -314,4 +382,46 @@ func (p *Processor) SaveSummary(content string) (string, error) {
 	_ = n // Ignore bytes written count
 
 	return outputPath, nil
+}
+
+// RenameTranscriptFile renames transcript.txt to a dated format based on the folder date.
+// Returns the new filename if renamed, empty string if skipped, or error if failed.
+// Skips rename if: already dated, no date in folder path, or transcriptPath not set.
+func (p *Processor) RenameTranscriptFile() (string, error) {
+	if p.transcriptPath == "" {
+		return "", nil
+	}
+
+	filename := filepath.Base(p.transcriptPath)
+
+	// Check if already a dated transcript (skip rename)
+	datePattern := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-transcript\.txt$`)
+	if datePattern.MatchString(filename) {
+		return "", nil // Already dated, nothing to do
+	}
+
+	// Get date from folder path
+	date := p.ExtractDateFromPath()
+	if date == "" {
+		return "", nil // No date in path, skip rename
+	}
+
+	// Build new filename and path
+	newFilename := fmt.Sprintf("%s-transcript.txt", date)
+	newPath := filepath.Join(p.meetingDir, newFilename)
+
+	// Check if destination already exists
+	if _, err := os.Stat(newPath); err == nil {
+		return "", fmt.Errorf("cannot rename transcript: %s already exists", newFilename)
+	}
+
+	// Rename the file
+	if err := os.Rename(p.transcriptPath, newPath); err != nil {
+		return "", fmt.Errorf("failed to rename transcript: %w", err)
+	}
+
+	// Update the stored path to reflect the new location
+	p.transcriptPath = newPath
+
+	return newFilename, nil
 }

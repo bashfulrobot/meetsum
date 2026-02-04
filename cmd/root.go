@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,15 +73,56 @@ func initConfig() {
 }
 
 func initLogger() {
-	logger = log.NewWithOptions(os.Stderr, log.Options{
-		ReportCaller:    false,
-		ReportTimestamp: false,
-		Level:           log.InfoLevel,
-	})
+	cfg := config.AppConfig
 
-	if traceMode || config.AppConfig.Features.TraceMode {
-		logger.SetLevel(log.DebugLevel)
+	// Parse log level
+	level := log.InfoLevel
+	switch strings.ToLower(cfg.Logging.Level) {
+	case "debug":
+		level = log.DebugLevel
+	case "warn":
+		level = log.WarnLevel
+	case "error":
+		level = log.ErrorLevel
 	}
+
+	// Override with trace mode
+	if traceMode || cfg.Features.TraceMode {
+		level = log.DebugLevel
+	}
+
+	// Determine output writer(s)
+	var writer io.Writer
+	switch cfg.Logging.Output {
+	case "file":
+		writer = openLogFile(cfg.GetLogFilePath())
+	case "both":
+		writer = io.MultiWriter(os.Stderr, openLogFile(cfg.GetLogFilePath()))
+	default: // "screen"
+		writer = os.Stderr
+	}
+
+	logger = log.NewWithOptions(writer, log.Options{
+		ReportCaller:    false,
+		ReportTimestamp: true,
+		Level:           level,
+	})
+}
+
+func openLogFile(path string) io.Writer {
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not create log directory: %v\n", err)
+		return os.Stderr
+	}
+
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not open log file: %v\n", err)
+		return os.Stderr
+	}
+	return file
 }
 
 func runMeetSum(cmd *cobra.Command, args []string) error {
@@ -252,6 +294,9 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 
 	if err != nil {
 		fmt.Println(ui.RenderError(fmt.Sprintf("Failed to generate summary: %v", err)))
+		if config.AppConfig.Logging.Output == "file" || config.AppConfig.Logging.Output == "both" {
+			fmt.Println(ui.RenderInfo(fmt.Sprintf("💡 Check the log file for detailed error output: %s", config.AppConfig.GetLogFilePath())))
+		}
 		return err
 	}
 
@@ -268,11 +313,21 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("empty summary generated")
 	}
 
+	// Rename transcript file to dated format if applicable
+	renamedTo, renameErr := processor.RenameTranscriptFile()
+	if renameErr != nil {
+		fmt.Println(ui.RenderWarning(fmt.Sprintf("Could not rename transcript: %v", renameErr)))
+	}
+
 	// Show success message
-	fmt.Println(ui.RenderInfoBox(
+	infoLines := []string{
 		fmt.Sprintf("📄 Summary file: %s", filepath.Base(outputPath)),
 		fmt.Sprintf("📍 Location: %s", meetingDir),
-	))
+	}
+	if renamedTo != "" {
+		infoLines = append(infoLines, fmt.Sprintf("📝 Transcript renamed to: %s", renamedTo))
+	}
+	fmt.Println(ui.RenderInfoBox(infoLines...))
 
 
 	fmt.Println()
