@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -29,6 +30,11 @@ type Config struct {
 		FileBrowser bool `mapstructure:"file_browser"`
 	} `mapstructure:"features"`
 
+	Logging struct {
+		Level  string `mapstructure:"level"`  // debug, info, warn, error
+		File   string `mapstructure:"file"`   // path to log file
+		Output string `mapstructure:"output"` // screen, file, both
+	} `mapstructure:"logging"`
 }
 
 var AppConfig *Config
@@ -54,6 +60,9 @@ func LoadConfig() error {
 	viper.SetDefault("ai.command", "gemini")
 	viper.SetDefault("features.trace_mode", false)
 	viper.SetDefault("features.file_browser", true)
+	viper.SetDefault("logging.level", "info")
+	viper.SetDefault("logging.file", filepath.Join(os.Getenv("HOME"), ".config", "meetsum", "error.log"))
+	viper.SetDefault("logging.output", "screen")
 
 	// Try to read config file
 	if err := viper.ReadInConfig(); err != nil {
@@ -80,4 +89,14 @@ func (c *Config) GetTranscriptPath(meetingDir string) string {
 // GetPovInputPath returns the full path to the POV input file in a meeting directory
 func (c *Config) GetPovInputPath(meetingDir string) string {
 	return filepath.Join(meetingDir, c.Files.PovInput)
+}
+
+// GetLogFilePath returns the expanded log file path
+func (c *Config) GetLogFilePath() string {
+	path := c.Logging.File
+	if strings.HasPrefix(path, "~/") {
+		homeDir, _ := os.UserHomeDir()
+		path = filepath.Join(homeDir, path[2:])
+	}
+	return path
 }

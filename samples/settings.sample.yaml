@@ -74,14 +74,27 @@ features:
 
 
 # ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+logging:
+  # Log level: debug, info, warn, error
+  # Controls verbosity of log output
+  level: "info"
+
+  # Log file path
+  # Where to write log output when output mode includes "file"
+  # Supports ~ for home directory expansion
+  file: "~/.config/meetsum/error.log"
+
+  # Output destination: screen, file, both
+  # - screen: Display errors in terminal (default, shows gemini CLI errors on screen)
+  # - file: Write errors to log file only (quiet mode, check log for details)
+  # - both: Display on screen AND write to log file
+  output: "screen"
+
+# ============================================================================
 # ADVANCED CONFIGURATION
 # ============================================================================
-
-# Logging configuration (future feature)
-# logging:
-#   level: "info"  # debug, info, warn, error
-#   file: ""       # empty = stdout, or path to log file
-#   format: "text" # text, json
 
 # Template customization (future feature)
 # templates:
