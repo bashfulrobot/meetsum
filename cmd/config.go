@@ -74,6 +74,13 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			Default:     "true",
 			Description: "Enable interactive file picker for directory selection",
 		},
+		{
+			Category:    "User",
+			Setting:     "name",
+			Value:       config.AppConfig.User.Name,
+			Default:     "(not set)",
+			Description: "Default name for first-person perspective summaries",
+		},
 	}
 
 	// Display the configuration table

@@ -216,6 +216,9 @@ features:
   trace_mode: false
   file_browser: true
   markdown_preview: true
+
+user:
+  name: "Your Name"  # Skip the name prompt; use --ask-name to override
 ```
 
 ### Complete Configuration
@@ -253,6 +256,7 @@ See [settings.sample.yaml](settings.sample.yaml) for all available options with 
 |------|-------------|
 | `--trace` | Enable detailed output, disable loading spinners |
 | `--config path` | Use custom configuration file |
+| `--ask-name` | Prompt for name even if `user.name` is configured |
 
 ## 🏗️ Development
 

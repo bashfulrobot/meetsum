@@ -59,6 +59,15 @@ ai:
   # api_key_file: "~/.config/gemini/api_key"  # path to API key file
 
 # ============================================================================
+# USER CONFIGURATION
+# ============================================================================
+user:
+  # Default name for first-person perspective in summaries
+  # When set, the interactive name prompt is skipped
+  # Use --ask-name flag to override and force the prompt
+  # name: "Your Name"
+
+# ============================================================================
 # FEATURE FLAGS
 # ============================================================================
 features:

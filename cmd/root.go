@@ -18,6 +18,7 @@ import (
 
 var (
 	traceMode  bool
+	askName    bool
 	meetingDir string
 	cfgFile    string
 	logger     *log.Logger
@@ -56,6 +57,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/meetsum/settings.yaml)")
 	rootCmd.Flags().BoolVar(&traceMode, "trace", false, "Run without spinners to see all output")
+	rootCmd.Flags().BoolVar(&askName, "ask-name", false, "Prompt for name even if default is configured")
 }
 
 func initConfig() {
@@ -211,10 +213,18 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 	// Display header
 	fmt.Println(ui.RenderHeader("🤖 Meeting Summary Generator", "Powered by Gemini Pro"))
 
-	// Get user's name
-	userName, err := getUserName()
-	if err != nil {
-		return err
+	// Get user's name - use config default unless --ask-name is set
+	var userName string
+	var err error
+	defaultName := strings.TrimSpace(config.AppConfig.User.Name)
+	if defaultName != "" && !askName {
+		userName = defaultName
+		fmt.Println(ui.RenderInfo(fmt.Sprintf("👤 Using configured name: %s", userName)))
+	} else {
+		userName, err = getUserName()
+		if err != nil {
+			return err
+		}
 	}
 
 	// Get meeting directory

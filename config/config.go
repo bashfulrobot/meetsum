@@ -35,6 +35,10 @@ type Config struct {
 		File   string `mapstructure:"file"`   // path to log file
 		Output string `mapstructure:"output"` // screen, file, both
 	} `mapstructure:"logging"`
+
+	User struct {
+		Name string `mapstructure:"name"`
+	} `mapstructure:"user"`
 }
 
 var AppConfig *Config
