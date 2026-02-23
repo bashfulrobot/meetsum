@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bashfulrobot/meetsum/config"
+	"github.com/bashfulrobot/meetsum/internal/summary"
 	"github.com/bashfulrobot/meetsum/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -46,30 +47,45 @@ func validateMeetingDirectory(meetingDir string) error {
 		return err
 	}
 
+	results := buildMeetingDirectoryValidationResults(meetingDir, config.AppConfig.Files.PovInput)
+	return ui.ShowFileValidationTable(results)
+}
+
+func buildMeetingDirectoryValidationResults(meetingDir, povInputFile string) []ui.FileValidationResult {
 	// Prepare file validation results
 	results := []ui.FileValidationResult{
 		{
-			File:        config.AppConfig.Files.Transcript,
+			File:        "*.txt transcript",
 			Required:    true,
-			Description: "Meeting transcript file - required for processing",
+			Description: "Exactly one .txt transcript file is required for processing",
 		},
 		{
-			File:        config.AppConfig.Files.PovInput,
+			File:        povInputFile,
 			Required:    false,
 			Description: "Point of view input file - optional context",
 		},
 	}
 
-	// Check each file
-	for i := range results {
-		filePath := filepath.Join(meetingDir, results[i].File)
-		if _, err := os.Stat(filePath); err == nil {
-			results[i].Found = true
-			results[i].Path = filePath
-		} else {
-			results[i].Found = false
-			results[i].Path = ""
-		}
+	// Check transcript discovery contract first.
+	transcriptPath, err := summary.FindSingleTranscriptCandidate(meetingDir)
+	if err == nil {
+		results[0].Found = true
+		results[0].Path = transcriptPath
+		results[0].Description = "Transcript candidate selected"
+	} else {
+		results[0].Found = false
+		results[0].Path = err.Error()
+		results[0].Description = "Expected exactly one .txt transcript candidate"
+	}
+
+	// Check optional POV input file.
+	povPath := filepath.Join(meetingDir, results[1].File)
+	if _, err := os.Stat(povPath); err == nil {
+		results[1].Found = true
+		results[1].Path = povPath
+	} else {
+		results[1].Found = false
+		results[1].Path = ""
 	}
 
 	// Also check for other common files
@@ -94,7 +110,7 @@ func validateMeetingDirectory(meetingDir string) error {
 		}
 	}
 
-	return ui.ShowFileValidationTable(results)
+	return results
 }
 
 func validateConfiguration() error {

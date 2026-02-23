@@ -9,8 +9,8 @@ import (
 )
 
 type TableModel struct {
-	table   table.Model
-	title   string
+	table    table.Model
+	title    string
 	quitting bool
 }
 
@@ -125,7 +125,7 @@ func ShowFileValidationTable(results []FileValidationResult) error {
 		}
 
 		path := result.Path
-		if !result.Found {
+		if path == "" && !result.Found {
 			path = "Not found"
 		}
 
@@ -143,10 +143,10 @@ func ShowFileValidationTable(results []FileValidationResult) error {
 
 // ConfigItem represents a configuration setting
 type ConfigItem struct {
-	Category string
-	Setting  string
-	Value    string
-	Default  string
+	Category    string
+	Setting     string
+	Value       string
+	Default     string
 	Description string
 }
 

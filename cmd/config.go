@@ -44,7 +44,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			Setting:     "transcript",
 			Value:       config.AppConfig.Files.Transcript,
 			Default:     "transcript.txt",
-			Description: "Required transcript filename in meeting directories",
+			Description: "Deprecated: transcript source is auto-discovered from exactly one .txt file",
 		},
 		{
 			Category:    "Files",

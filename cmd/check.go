@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/bashfulrobot/meetsum/config"
+	"github.com/bashfulrobot/meetsum/internal/ai"
 	"github.com/bashfulrobot/meetsum/internal/deps"
 	"github.com/bashfulrobot/meetsum/internal/ui"
 	"github.com/spf13/cobra"
@@ -14,7 +16,7 @@ var checkCmd = &cobra.Command{
 	Use:   "check",
 	Short: "Check system dependencies and configuration",
 	Long: `Check if all required dependencies are installed and properly configured.
-This includes verifying that gemini-cli is available and functional.`,
+This includes verifying that the configured AI command is available and functional.`,
 	RunE: runCheck,
 }
 
@@ -22,38 +24,41 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	fmt.Println(ui.RenderHeader("🔍 Dependency Check", "Verifying meetsum requirements"))
 
 	allGood := true
+	configured := config.AppConfig.AI.Command
+	resolved, resolveErr := ai.ResolveCommand(configured)
 
-	// Check gemini-cli (primary requirement)
-	fmt.Print("🤖 gemini-cli: ")
-	geminiInstalled := deps.CheckGeminiInstalled()
-	if geminiInstalled {
-		fmt.Println(ui.RenderSuccess("✅ Installed"))
+	fmt.Printf("🤖 configured ai.command (%q): ", configured)
+	if resolveErr != nil {
+		fmt.Println(ui.RenderError("❌ Invalid configuration"))
+		fmt.Println(ui.RenderInfo(fmt.Sprintf("   %v", resolveErr)))
+		allGood = false
+	} else {
+		if _, err := ai.CheckCommandAvailable(configured); err != nil {
+			fmt.Println(ui.RenderError("❌ Not available"))
+			fmt.Println(ui.RenderInfo(fmt.Sprintf("   Install %q or update ai.command in settings.yaml", resolved)))
+			allGood = false
+		} else {
+			fmt.Println(ui.RenderSuccess("✅ Available"))
+		}
+	}
 
-		// Test if gemini is functional
-		fmt.Print("🔧 gemini configuration: ")
+	if resolved == "gemini" {
+		fmt.Print("🔧 gemini setup: ")
 		if err := deps.ValidateGeminiSetup(); err != nil {
 			fmt.Println(ui.RenderWarning("⚠️  May need configuration"))
 			fmt.Println(ui.RenderInfo("   Run 'meetsum install gemini' for setup help"))
 		} else {
 			fmt.Println(ui.RenderSuccess("✅ Functional"))
 		}
-	} else {
-		fmt.Println(ui.RenderError("❌ Not installed"))
-		allGood = false
+
+		fmt.Print("🍺 Homebrew: ")
+		if deps.CheckBrewInstalled() {
+			fmt.Println(ui.RenderSuccess("✅ Installed"))
+		} else {
+			fmt.Println(ui.RenderWarning("⚠️  Not installed (needed for guided gemini install path)"))
+		}
 	}
 
-	// Check Homebrew (optional - only needed if gemini isn't installed)
-	fmt.Print("🍺 Homebrew: ")
-	brewInstalled := deps.CheckBrewInstalled()
-	if brewInstalled {
-		fmt.Println(ui.RenderSuccess("✅ Installed"))
-	} else if geminiInstalled {
-		fmt.Println(ui.RenderInfo("ℹ️  Not installed (not needed - gemini-cli is already available)"))
-	} else {
-		fmt.Println(ui.RenderWarning("⚠️  Not installed (needed to install gemini-cli)"))
-	}
-
-	// Check other useful tools
 	fmt.Print("📋 git: ")
 	if _, err := exec.LookPath("git"); err == nil {
 		fmt.Println(ui.RenderSuccess("✅ Available"))
@@ -64,14 +69,13 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	if allGood {
-		fmt.Println(ui.RenderSuccess("🎉 All dependencies are ready!"))
+		fmt.Println(ui.RenderSuccess("🎉 Runtime dependencies are ready!"))
 		fmt.Println(ui.RenderInfo("💡 You can now run 'meetsum' to generate meeting summaries"))
 	} else {
-		fmt.Println(ui.RenderError("❌ Some dependencies are missing"))
-		fmt.Println(ui.RenderInfo("💡 Run 'meetsum install all' to install missing dependencies"))
+		fmt.Println(ui.RenderError("❌ Required runtime dependency checks failed"))
+		fmt.Println(ui.RenderInfo("💡 Install the configured AI command or update ai.command"))
 	}
 
-	// Show configuration overview table
 	fmt.Println()
 	fmt.Println(ui.RenderInfo("📊 Use 'meetsum config' to view detailed configuration"))
 

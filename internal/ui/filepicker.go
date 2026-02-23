@@ -7,19 +7,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bashfulrobot/meetsum/config"
+	"github.com/bashfulrobot/meetsum/internal/summary"
 	"github.com/charmbracelet/bubbles/filepicker"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/bashfulrobot/meetsum/config"
 )
 
 type filePickerModel struct {
-	filepicker     filepicker.Model
-	selectedPath   string
-	quitting       bool
-	err            error
-	transcriptFile string
-	povInputFile   string
-	rootPath       string
+	filepicker   filepicker.Model
+	selectedPath string
+	quitting     bool
+	err          error
+	povInputFile string
+	rootPath     string
 }
 
 type clearErrorMsg struct{}
@@ -63,26 +63,24 @@ func (m filePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
 		// Check if the selected path is a directory
 		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			// Selected a directory - check if it contains the transcript file
-			transcriptPath := filepath.Join(path, m.transcriptFile)
-			if _, err := os.Stat(transcriptPath); err == nil {
+			// Selected a directory - validate transcript discovery contract.
+			if _, err := summary.FindSingleTranscriptCandidate(path); err == nil {
 				m.selectedPath = path
 				m.quitting = true
 				return m, tea.Quit
 			} else {
-				m.err = fmt.Errorf("directory must contain %s", m.transcriptFile)
+				m.err = err
 				return m, clearErrorAfter()
 			}
 		} else {
-			// Selected a file - check the parent directory
+			// Selected a file - validate the parent directory.
 			dir := filepath.Dir(path)
-			transcriptPath := filepath.Join(dir, m.transcriptFile)
-			if _, err := os.Stat(transcriptPath); err == nil {
+			if _, err := summary.FindSingleTranscriptCandidate(dir); err == nil {
 				m.selectedPath = dir
 				m.quitting = true
 				return m, tea.Quit
 			} else {
-				m.err = fmt.Errorf("selected directory must contain %s", m.transcriptFile)
+				m.err = err
 				return m, clearErrorAfter()
 			}
 		}
@@ -112,7 +110,7 @@ func (m filePickerModel) View() string {
 	s.WriteString("\n\n")
 
 	// File requirements
-	s.WriteString(InfoStyle.Render(fmt.Sprintf("Required: %s", m.transcriptFile)))
+	s.WriteString(InfoStyle.Render("Required: exactly one .txt transcript file"))
 	s.WriteString("\n")
 	s.WriteString(SecondaryStyle.Render(fmt.Sprintf("Optional: %s", m.povInputFile)))
 	s.WriteString("\n\n")
@@ -162,21 +160,16 @@ func SelectDirectory(startPath string) (string, error) {
 	fp.ShowSize = false
 	fp.AutoHeight = true // Let filepicker auto-size based on terminal
 
-	// Get filenames from config with fallbacks
-	transcriptFile := "transcript.txt"
-	if config.AppConfig != nil && config.AppConfig.Files.Transcript != "" {
-		transcriptFile = config.AppConfig.Files.Transcript
-	}
+	// Get optional filename from config with fallback.
 	povInputFile := "pov-input.md"
 	if config.AppConfig != nil && config.AppConfig.Files.PovInput != "" {
 		povInputFile = config.AppConfig.Files.PovInput
 	}
 
 	m := filePickerModel{
-		filepicker:     fp,
-		transcriptFile: transcriptFile,
-		povInputFile:   povInputFile,
-		rootPath:       startPath,
+		filepicker:   fp,
+		povInputFile: povInputFile,
+		rootPath:     startPath,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
