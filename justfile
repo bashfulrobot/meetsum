@@ -31,9 +31,9 @@ default:
     @echo "  lint [fix=false]           - Add fix=true to auto-fix issues"
     @echo ""
     @echo "💡 Pro Tips:"
-    @echo "  • Run 'just check' before committing"
+    @echo "  • Run 'just quality' before committing"
     @echo "  • Use 'just run --help' to see CLI options"
-    @echo "  • Common workflow: just check → just test → just build"
+    @echo "  • Common workflow: just quality → just build"
 
 # === Development Commands ===
 # Quick validation without building
@@ -53,6 +53,24 @@ check:
     go vet ./...
 
     echo "✅ All checks passed"
+
+# Deterministic local quality gate (format, vet, tests)
+[group('dev')]
+quality:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🔍 Running deterministic quality checks..."
+
+    echo "📋 Formatting..."
+    go fmt ./...
+
+    echo "🔍 Vetting code..."
+    go vet ./...
+
+    echo "🧪 Running tests..."
+    go test ./...
+
+    echo "✅ Quality checks passed"
 
 # Build for current platform
 [group('dev')]
