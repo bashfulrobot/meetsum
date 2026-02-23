@@ -12,7 +12,7 @@ import (
 var (
 	boldItalicHeaderRe = regexp.MustCompile(`^\*_.*_\*$`)
 	boldHeaderRe       = regexp.MustCompile(`^\*([A-Z][A-Z ]*)\*$`)
-	italicHeaderRe     = regexp.MustCompile(`^_([A-Z][A-Z0-9 ]*?)_$`)
+	italicHeaderRe     = regexp.MustCompile(`^_([A-Z][A-Z0-9 /&-]*?)_$`)
 )
 
 // ParseSections splits validated summary text into named sections by detecting

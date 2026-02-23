@@ -35,6 +35,28 @@ The partnership with XYZ Corp is progressing well.
 
 - [Meeting Recording](PLACEHOLDER_URL)`
 
+const testSummarySlashTopic = `*_2026-02-24 GISC CADENCE CALL SUMMARY_*
+
+_CURRENT STATE/USE CASES_
+
+The GISC team has made good progress in their proof-of-concept.
+
+*HIGHLIGHTS*
+
+- Validated Kong proxy capabilities with existing MCPs on AWS.
+
+*ACTION ITEMS*
+
+- Joe Cesario: Send an invite for the Professional Services scoping call.
+
+*RISKS*
+
+- Timeline Risk: The target of launching by end of April is aggressive.
+
+*MEETING RECORDING*
+
+- [Clari Recording](PLACEHOLDER_URL)`
+
 const testSummaryNoRisks = `*_2026-02-23 ACME CADENCE CALL SUMMARY_*
 
 _PRODUCT ROADMAP_
@@ -112,6 +134,19 @@ func TestParseSections(t *testing.T) {
 		}
 	})
 
+	t.Run("topic with slash in name", func(t *testing.T) {
+		sections := ParseSections(testSummarySlashTopic)
+
+		if _, ok := sections["topic:CURRENT STATE/USE CASES"]; !ok {
+			t.Error("expected topic:CURRENT STATE/USE CASES section")
+		}
+
+		// Title should only contain the title line, not the topic content
+		if strings.Contains(sections["title"], "proof-of-concept") {
+			t.Error("topic content should not be lumped into title section")
+		}
+	})
+
 	t.Run("empty input", func(t *testing.T) {
 		sections := ParseSections("")
 		if len(sections) != 0 {
@@ -176,6 +211,18 @@ func TestBuildSlackSummary(t *testing.T) {
 			t.Error("topic section should be excluded from Slack output")
 		}
 		if strings.Contains(result, "We discussed the upcoming product roadmap") {
+			t.Error("topic content should be excluded from Slack output")
+		}
+	})
+
+	t.Run("slash topic excluded from slack output", func(t *testing.T) {
+		sections := ParseSections(testSummarySlashTopic)
+		result := BuildSlackSummary(sections)
+
+		if strings.Contains(result, "_CURRENT STATE/USE CASES_") {
+			t.Error("topic with slash should be excluded from Slack output")
+		}
+		if strings.Contains(result, "proof-of-concept") {
 			t.Error("topic content should be excluded from Slack output")
 		}
 	})
