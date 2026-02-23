@@ -8,11 +8,11 @@ import (
 )
 
 type SpinnerModel struct {
-	spinner  spinner.Model
-	message  string
-	done     bool
-	result   interface{}
-	err      error
+	spinner spinner.Model
+	message string
+	done    bool
+	result  interface{}
+	err     error
 }
 
 type SpinnerFinishedMsg struct {

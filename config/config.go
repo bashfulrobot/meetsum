@@ -12,8 +12,8 @@ import (
 type Config struct {
 	Paths struct {
 		FileBrowserRootDir string `mapstructure:"file_browser_root_dir"`
-		AutomationDir         string `mapstructure:"automation_dir"`
-		InstructionsFile      string `mapstructure:"instructions_file"`
+		AutomationDir      string `mapstructure:"automation_dir"`
+		InstructionsFile   string `mapstructure:"instructions_file"`
 	} `mapstructure:"paths"`
 
 	Files struct {
