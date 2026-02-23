@@ -4,7 +4,7 @@
 
 A modern Go CLI application that transforms meeting transcripts into structured summaries using AI.
 
-[![Go](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org)
+[![Go](https://img.shields.io/badge/Go-1.25+-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## ✨ Features
@@ -128,7 +128,7 @@ meetsum expects a specific directory structure to properly extract customer name
 /path/to/Customers/
 ├── CustomerName/           # Customer folder (used in output filename)
 │   └── YYYY-MM-DD/        # Date folder (any date format works)
-│       ├── transcript.txt          # Required: Meeting transcript
+│       ├── <exactly-one>.txt       # Required: exactly one transcript candidate
 │       ├── pov-input.md           # Optional: Additional context/structure
 │       └── YYYY-MM-DD-CustomerName-cadence-call-summary.md  # Generated output
 ```
@@ -145,8 +145,9 @@ meetsum expects a specific directory structure to properly extract customer name
    - Consistent naming for better organization
 
 3. **Required Files**:
-   - `transcript.txt` - The meeting transcript (configurable filename)
+   - Exactly one file with `.txt` extension (case-insensitive) in the meeting directory
    - `Meeting-summary-llm-instructions.md` - Must exist in your automation directory
+   - If zero or multiple `.txt` files are present, `meetsum`, the file picker, and `meetsum validate` all fail fast
 
 4. **Optional Files**:
    - `pov-input.md` - Additional context and structure guidance (configurable filename)
@@ -187,7 +188,7 @@ paths:
   automation_dir: "/your/path/to/automation/summaries"
 
 files:
-  transcript: "transcript.txt"      # Customize transcript filename
+  transcript: "transcript.txt"      # Deprecated: transcript source is auto-discovered
   pov_input: "pov-input.md"        # Customize context filename
 ```
 
@@ -262,7 +263,7 @@ See [settings.sample.yaml](settings.sample.yaml) for all available options with 
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.25+
 - C compiler (gcc, clang, or build-essential)
 - [just](https://github.com/casey/just) task runner (optional)
 
@@ -302,8 +303,8 @@ CC=clang go build -o meetsum
 # Show available commands
 just
 
-# Run development checks
-just check
+# Run deterministic local quality checks (format, vet, tests)
+just quality
 
 # Build for current platform
 just build
@@ -315,7 +316,7 @@ just test
 just build-all
 
 # Development workflow
-just check && just test && just build
+just quality && just build
 ```
 
 ### Project Structure
@@ -392,4 +393,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 🐛 **Bug Reports**: [GitHub Issues](https://github.com/bashfulrobot/meetsum/issues)
 - 💡 **Feature Requests**: [GitHub Discussions](https://github.com/bashfulrobot/meetsum/discussions)
 - 📖 **Gemini Documentation**: Run `meetsum docs gemini` for Gemini CLI setup instructions
-

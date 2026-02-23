@@ -29,8 +29,10 @@ paths:
 # FILE CONFIGURATION
 # ============================================================================
 files:
-  # Name of the required transcript file in each meeting directory
-  # The application will look for this file in the selected meeting folder
+  # Deprecated for transcript discovery compatibility.
+  # Transcript source selection now requires exactly one .txt file in each
+  # meeting directory (case-insensitive extension match). If there are zero
+  # or multiple .txt files, meetsum fails with actionable guidance.
   transcript: "transcript.txt"
 
   # Name of the optional POV (Point of View) input file
