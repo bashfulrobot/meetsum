@@ -212,6 +212,7 @@ paths:
 
 ai:
   command: "gemini"
+  args: [] # Optional ordered CLI argument tokens
 
 features:
   trace_mode: false
@@ -221,6 +222,28 @@ features:
 user:
   name: "Your Name"  # Skip the name prompt; use --ask-name to override
 ```
+
+### AI Command + Args
+
+`meetsum` resolves runtime invocation from:
+
+- `ai.command`: executable name in `PATH` (or absolute executable path)
+- `ai.args`: optional ordered list of argument tokens
+
+When `ai.args` is omitted or empty, meetsum runs the command with no configured args.
+This makes it easy to switch providers without changing code.
+
+```yaml
+ai:
+  command: "openai"
+  args:
+    - "responses.create"
+    - "--model"
+    - "gpt-4.1-mini"
+```
+
+Compatibility note: existing inline args in `ai.command` still work when `ai.args` is empty.
+To avoid ambiguity, do not combine inline args in `ai.command` with a non-empty `ai.args`.
 
 ### Complete Configuration
 

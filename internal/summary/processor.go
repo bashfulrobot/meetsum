@@ -255,7 +255,7 @@ TRANSCRIPT:
 
 // executeAICommand runs the AI command and captures stdout/stderr separately
 func (p *Processor) executeAICommand(prompt string) (stdout string, stderr string, err error) {
-	command, args, err := ai.ResolveCommandArgs(p.config.AI.Command)
+	command, args, err := ai.ResolveConfiguredInvocation(p.config.AI.Command, p.config.AI.Args)
 	if err != nil {
 		return "", "", err
 	}

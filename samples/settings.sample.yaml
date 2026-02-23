@@ -51,14 +51,21 @@ files:
 ai:
   # Command to execute for AI text generation
   # This should be the name of the AI CLI tool you want to use
-  # Currently supported: "gemini" (Google Gemini CLI)
+  # This is provider-agnostic; any AI CLI available in PATH can be used
   # The command must be available in your PATH
   command: "gemini"
 
-  # Future AI provider options (not yet implemented):
-  # provider: "gemini"  # gemini, openai, anthropic, etc.
-  # model: "gemini-pro"  # specific model to use
-  # api_key_file: "~/.config/gemini/api_key"  # path to API key file
+  # Optional AI CLI arguments, passed as ordered tokens
+  # Keep each token as a separate list item (no shell parsing is applied)
+  # Omit or leave empty to run with no configured arguments
+  args: []
+
+  # Provider-agnostic example:
+  # command: "openai"
+  # args:
+  #   - "responses.create"
+  #   - "--model"
+  #   - "gpt-4.1-mini"
 
 # ============================================================================
 # USER CONFIGURATION

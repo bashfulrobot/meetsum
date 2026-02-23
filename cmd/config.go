@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/bashfulrobot/meetsum/config"
 	"github.com/bashfulrobot/meetsum/internal/ui"
 	"github.com/spf13/cobra"
@@ -61,6 +63,13 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			Description: "AI CLI command for text generation",
 		},
 		{
+			Category:    "AI",
+			Setting:     "args",
+			Value:       aiArgsSummary(config.AppConfig.AI.Args),
+			Default:     "0 configured",
+			Description: "Configured AI CLI argument count (arguments are not echoed)",
+		},
+		{
 			Category:    "Features",
 			Setting:     "trace_mode",
 			Value:       boolToString(config.AppConfig.Features.TraceMode),
@@ -92,6 +101,10 @@ func boolToString(b bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func aiArgsSummary(args []string) string {
+	return fmt.Sprintf("%d configured", len(args))
 }
 
 func init() {

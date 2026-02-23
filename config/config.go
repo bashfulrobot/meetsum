@@ -22,7 +22,8 @@ type Config struct {
 	} `mapstructure:"files"`
 
 	AI struct {
-		Command string `mapstructure:"command"`
+		Command string   `mapstructure:"command"`
+		Args    []string `mapstructure:"args"`
 	} `mapstructure:"ai"`
 
 	Features struct {
@@ -62,6 +63,7 @@ func LoadConfig() error {
 	viper.SetDefault("files.transcript", "transcript.txt")
 	viper.SetDefault("files.pov_input", "pov-input.md")
 	viper.SetDefault("ai.command", "gemini")
+	viper.SetDefault("ai.args", []string{})
 	viper.SetDefault("features.trace_mode", false)
 	viper.SetDefault("features.file_browser", true)
 	viper.SetDefault("logging.level", "info")

@@ -51,7 +51,7 @@ func NewService(cfg *config.Config, logger *log.Logger) *Service {
 
 // Preflight checks configured runtime dependencies.
 func (s *Service) Preflight() (string, error) {
-	command, err := ai.CheckCommandAvailable(s.cfg.AI.Command)
+	command, err := ai.CheckConfiguredCommandAvailable(s.cfg.AI.Command, s.cfg.AI.Args)
 	if err != nil {
 		return command, err
 	}

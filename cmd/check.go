@@ -24,25 +24,27 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	fmt.Println(ui.RenderHeader("🔍 Dependency Check", "Verifying meetsum requirements"))
 
 	allGood := true
-	configured := config.AppConfig.AI.Command
-	resolved, resolveErr := ai.ResolveCommand(configured)
+	configuredCommand := config.AppConfig.AI.Command
+	configuredArgs := config.AppConfig.AI.Args
+	resolvedCommand, _, resolveErr := ai.ResolveConfiguredInvocation(configuredCommand, configuredArgs)
 
-	fmt.Printf("🤖 configured ai.command (%q): ", configured)
+	fmt.Printf("🤖 configured ai.command (%q): ", configuredCommand)
 	if resolveErr != nil {
 		fmt.Println(ui.RenderError("❌ Invalid configuration"))
 		fmt.Println(ui.RenderInfo(fmt.Sprintf("   %v", resolveErr)))
 		allGood = false
 	} else {
-		if _, err := ai.CheckCommandAvailable(configured); err != nil {
+		if _, err := ai.CheckConfiguredCommandAvailable(configuredCommand, configuredArgs); err != nil {
 			fmt.Println(ui.RenderError("❌ Not available"))
-			fmt.Println(ui.RenderInfo(fmt.Sprintf("   Install %q or update ai.command in settings.yaml", resolved)))
+			fmt.Println(ui.RenderInfo(fmt.Sprintf("   Install %q or update ai.command/ai.args in settings.yaml", resolvedCommand)))
 			allGood = false
 		} else {
 			fmt.Println(ui.RenderSuccess("✅ Available"))
 		}
 	}
+	fmt.Println(ui.RenderInfo(fmt.Sprintf("🧩 configured ai.args: %d token(s)", len(configuredArgs))))
 
-	if resolved == "gemini" {
+	if resolvedCommand == "gemini" {
 		fmt.Print("🔧 gemini setup: ")
 		if err := deps.ValidateGeminiSetup(); err != nil {
 			fmt.Println(ui.RenderWarning("⚠️  May need configuration"))
@@ -73,7 +75,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		fmt.Println(ui.RenderInfo("💡 You can now run 'meetsum' to generate meeting summaries"))
 	} else {
 		fmt.Println(ui.RenderError("❌ Required runtime dependency checks failed"))
-		fmt.Println(ui.RenderInfo("💡 Install the configured AI command or update ai.command"))
+		fmt.Println(ui.RenderInfo("💡 Install the configured AI command or update ai.command/ai.args"))
 	}
 
 	fmt.Println()

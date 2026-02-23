@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -30,14 +31,19 @@ func TestServicePreflightMissingCommand(t *testing.T) {
 
 func TestServiceRunSuccessAndRename(t *testing.T) {
 	commandDir := t.TempDir()
+	argLogPath := filepath.Join(t.TempDir(), "argv.log")
 	writeExecutable(t, commandDir, "fake-ai-success", `#!/usr/bin/env bash
 cat >/dev/null
+if [ -n "${MEETSUM_ARG_LOG:-}" ]; then
+  printf "%s\n" "$@" > "${MEETSUM_ARG_LOG}"
+fi
 cat <<'OUT'
 *_SUMMARY_*
 - Completed action items
 OUT
 `)
 	t.Setenv("PATH", commandDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("MEETSUM_ARG_LOG", argLogPath)
 
 	cfg := newTestConfig(t, "fake-ai-success")
 	service := NewService(cfg, nil)
@@ -83,6 +89,117 @@ OUT
 	renamedPath := filepath.Join(meetingDir, result.RenamedTranscript)
 	if _, err := os.Stat(renamedPath); err != nil {
 		t.Fatalf("expected renamed transcript file: %v", err)
+	}
+
+	invocationArgs := readArgTokens(t, argLogPath)
+	if len(invocationArgs) != 0 {
+		t.Fatalf("expected no configured args, got %v", invocationArgs)
+	}
+}
+
+func TestServiceRunUsesConfiguredArgs(t *testing.T) {
+	commandDir := t.TempDir()
+	argLogPath := filepath.Join(t.TempDir(), "argv.log")
+	writeExecutable(t, commandDir, "fake-ai-with-args", `#!/usr/bin/env bash
+cat >/dev/null
+if [ -n "${MEETSUM_ARG_LOG:-}" ]; then
+  printf "%s\n" "$@" > "${MEETSUM_ARG_LOG}"
+fi
+cat <<'OUT'
+*_SUMMARY_*
+- Completed action items
+OUT
+`)
+	t.Setenv("PATH", commandDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("MEETSUM_ARG_LOG", argLogPath)
+
+	cfg := newTestConfig(t, "fake-ai-with-args")
+	cfg.AI.Args = []string{"--model", "MODEL-NAME", "--profile", "team-a"}
+	service := NewService(cfg, nil)
+
+	command, err := service.Preflight()
+	if err != nil {
+		t.Fatalf("preflight failed unexpectedly: %v", err)
+	}
+	if command != "fake-ai-with-args" {
+		t.Fatalf("expected fake-ai-with-args command, got %q", command)
+	}
+
+	meetingDir := createMeetingDir(t, "2026-02-04", "transcript.txt", "transcript content")
+	session, err := service.Prepare(RunRequest{UserName: "Tester", MeetingDir: meetingDir})
+	if err != nil {
+		t.Fatalf("prepare failed: %v", err)
+	}
+
+	if _, err := session.Run(); err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+
+	invocationArgs := readArgTokens(t, argLogPath)
+	expectedArgs := []string{"--model", "MODEL-NAME", "--profile", "team-a"}
+	if !reflect.DeepEqual(invocationArgs, expectedArgs) {
+		t.Fatalf("expected args %v, got %v", expectedArgs, invocationArgs)
+	}
+}
+
+func TestServiceRunSupportsLegacyInlineCommandArgs(t *testing.T) {
+	commandDir := t.TempDir()
+	argLogPath := filepath.Join(t.TempDir(), "argv.log")
+	writeExecutable(t, commandDir, "fake-ai-inline", `#!/usr/bin/env bash
+cat >/dev/null
+if [ -n "${MEETSUM_ARG_LOG:-}" ]; then
+  printf "%s\n" "$@" > "${MEETSUM_ARG_LOG}"
+fi
+cat <<'OUT'
+*_SUMMARY_*
+- Completed action items
+OUT
+`)
+	t.Setenv("PATH", commandDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("MEETSUM_ARG_LOG", argLogPath)
+
+	cfg := newTestConfig(t, "fake-ai-inline --model legacy-model --profile legacy-team")
+	service := NewService(cfg, nil)
+
+	command, err := service.Preflight()
+	if err != nil {
+		t.Fatalf("preflight failed unexpectedly: %v", err)
+	}
+	if command != "fake-ai-inline" {
+		t.Fatalf("expected fake-ai-inline command, got %q", command)
+	}
+
+	meetingDir := createMeetingDir(t, "2026-02-04", "transcript.txt", "transcript content")
+	session, err := service.Prepare(RunRequest{UserName: "Tester", MeetingDir: meetingDir})
+	if err != nil {
+		t.Fatalf("prepare failed: %v", err)
+	}
+
+	if _, err := session.Run(); err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+
+	invocationArgs := readArgTokens(t, argLogPath)
+	expectedArgs := []string{"--model", "legacy-model", "--profile", "legacy-team"}
+	if !reflect.DeepEqual(invocationArgs, expectedArgs) {
+		t.Fatalf("expected legacy inline args %v, got %v", expectedArgs, invocationArgs)
+	}
+}
+
+func TestServicePreflightRejectsMixedInlineAndConfiguredArgs(t *testing.T) {
+	cfg := newTestConfig(t, "fake-ai-mixed --model inline-model")
+	cfg.AI.Args = []string{"--model", "configured-model"}
+	service := NewService(cfg, nil)
+
+	command, err := service.Preflight()
+	if err == nil {
+		t.Fatalf("expected preflight error for mixed command and args config")
+	}
+	if command != "" {
+		t.Fatalf("expected empty command when configuration is invalid, got %q", command)
+	}
+	if !strings.Contains(err.Error(), "ai.command contains inline arguments while ai.args is also set") {
+		t.Fatalf("expected mixed-source configuration error, got: %v", err)
 	}
 }
 
@@ -207,4 +324,20 @@ func writeExecutable(t *testing.T, dir, name, content string) {
 	if err := os.WriteFile(path, []byte(content), 0755); err != nil {
 		t.Fatalf("failed to write test executable %s: %v", name, err)
 	}
+}
+
+func readArgTokens(t *testing.T, path string) []string {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read arg log: %v", err)
+	}
+
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "" {
+		return nil
+	}
+
+	return strings.Split(trimmed, "\n")
 }

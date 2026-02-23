@@ -201,8 +201,14 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 	}
 
 	// Show processing info
+	_, resolvedArgs, resolveErr := ai.ResolveConfiguredInvocation(config.AppConfig.AI.Command, config.AppConfig.AI.Args)
+	if resolveErr != nil {
+		return resolveErr
+	}
+
 	fmt.Println()
-	fmt.Printf("🤖 Runtime Command: %s\n", config.AppConfig.AI.Command)
+	fmt.Printf("🤖 Runtime Command: %s\n", aiCommand)
+	fmt.Printf("🧩 Runtime Args: %d configured token(s)\n", len(resolvedArgs))
 	fmt.Printf("📍 Working Directory: %s\n", preparation.MeetingDir)
 	fmt.Println("⚡ Starting summary generation...")
 	fmt.Println()
@@ -259,7 +265,7 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 func preflightGuidance(aiCommand string) []string {
 	command := strings.TrimSpace(aiCommand)
 	if command == "" {
-		resolved, err := ai.ResolveCommand(config.AppConfig.AI.Command)
+		resolved, _, err := ai.ResolveConfiguredInvocation(config.AppConfig.AI.Command, config.AppConfig.AI.Args)
 		if err == nil {
 			command = resolved
 		}
@@ -270,7 +276,7 @@ func preflightGuidance(aiCommand string) []string {
 
 	lines := []string{
 		fmt.Sprintf("install %q and ensure it is available in PATH", command),
-		"update ai.command in your settings.yaml to a command available on this machine",
+		"update ai.command/ai.args in your settings.yaml to a valid invocation for this machine",
 		"run 'meetsum check' to re-validate runtime dependencies",
 	}
 
