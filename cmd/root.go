@@ -248,12 +248,18 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 		fmt.Sprintf("📄 Summary file: %s", filepath.Base(runResult.OutputPath)),
 		fmt.Sprintf("📍 Location: %s", preparation.MeetingDir),
 	}
+	if runResult.SlackOutputPath != "" {
+		infoLines = append(infoLines, fmt.Sprintf("📋 Slack summary: %s", filepath.Base(runResult.SlackOutputPath)))
+	}
 	if runResult.RenamedTranscript != "" {
 		infoLines = append(infoLines, fmt.Sprintf("📝 Transcript renamed to: %s", runResult.RenamedTranscript))
 	}
 	fmt.Println(ui.RenderInfoBox(infoLines...))
 	if runResult.RenameWarning != "" {
 		fmt.Println(ui.RenderWarning(fmt.Sprintf("Could not rename transcript: %s", runResult.RenameWarning)))
+	}
+	if runResult.SlackWarning != "" {
+		fmt.Println(ui.RenderWarning(fmt.Sprintf("Could not save Slack summary: %s", runResult.SlackWarning)))
 	}
 
 	fmt.Println()

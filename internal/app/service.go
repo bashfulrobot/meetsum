@@ -28,8 +28,10 @@ type RunPreparation struct {
 type RunResult struct {
 	Summary           string
 	OutputPath        string
+	SlackOutputPath   string
 	RenamedTranscript string
 	RenameWarning     string
+	SlackWarning      string
 }
 
 // Service orchestrates summary runtime behavior independently of CLI rendering.
@@ -120,6 +122,18 @@ func (s *Session) Run() (RunResult, error) {
 		return RunResult{}, err
 	}
 
+	// Generate and save Slack mini summary (non-fatal)
+	slackOutputPath := ""
+	slackWarning := ""
+	sections := summary.ParseSections(output.Cleaned)
+	slackContent := summary.BuildSlackSummary(sections)
+	slackPath, slackErr := s.processor.SaveSlackSummary(slackContent)
+	if slackErr != nil {
+		slackWarning = slackErr.Error()
+	} else {
+		slackOutputPath = slackPath
+	}
+
 	renamedTranscript, err := s.processor.RenameTranscriptFile()
 	renameWarning := ""
 	if err != nil {
@@ -129,7 +143,9 @@ func (s *Session) Run() (RunResult, error) {
 	return RunResult{
 		Summary:           output.Cleaned,
 		OutputPath:        outputPath,
+		SlackOutputPath:   slackOutputPath,
 		RenamedTranscript: renamedTranscript,
 		RenameWarning:     renameWarning,
+		SlackWarning:      slackWarning,
 	}, nil
 }

@@ -326,6 +326,112 @@ func writeExecutable(t *testing.T, dir, name, content string) {
 	}
 }
 
+func TestServiceRunWritesSlackSummary(t *testing.T) {
+	commandDir := t.TempDir()
+	writeExecutable(t, commandDir, "fake-ai-slack", `#!/usr/bin/env bash
+cat >/dev/null
+cat <<'OUT'
+*_2026-02-04 ACME CADENCE CALL SUMMARY_*
+
+*HIGHLIGHTS*
+
+- Key insight from the meeting.
+
+*ACTION ITEMS*
+
+- Tester: Complete the analysis.
+
+*MEETING RECORDING*
+
+- [Meeting Recording](PLACEHOLDER_URL)
+OUT
+`)
+	t.Setenv("PATH", commandDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	cfg := newTestConfig(t, "fake-ai-slack")
+	service := NewService(cfg, nil)
+	meetingDir := createMeetingDir(t, "2026-02-04", "transcript.txt", "transcript content")
+
+	session, err := service.Prepare(RunRequest{UserName: "Tester", MeetingDir: meetingDir})
+	if err != nil {
+		t.Fatalf("prepare failed: %v", err)
+	}
+
+	result, err := session.Run()
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+
+	if result.OutputPath == "" {
+		t.Fatal("expected output path")
+	}
+	if _, err := os.Stat(result.OutputPath); err != nil {
+		t.Fatalf("main summary file not found: %v", err)
+	}
+
+	if result.SlackOutputPath == "" {
+		t.Fatal("expected slack output path")
+	}
+	if _, err := os.Stat(result.SlackOutputPath); err != nil {
+		t.Fatalf("slack summary file not found: %v", err)
+	}
+
+	slackFilename := filepath.Base(result.SlackOutputPath)
+	if !strings.Contains(slackFilename, "-slack") {
+		t.Errorf("expected -slack in filename, got %s", slackFilename)
+	}
+
+	slackContent, err := os.ReadFile(result.SlackOutputPath)
+	if err != nil {
+		t.Fatalf("failed to read slack summary: %v", err)
+	}
+	slackStr := string(slackContent)
+
+	if !strings.Contains(slackStr, "*_2026-02-04 ACME CADENCE CALL SUMMARY_*") {
+		t.Error("slack summary missing title")
+	}
+	if !strings.Contains(slackStr, "*HIGHLIGHTS*") {
+		t.Error("slack summary missing highlights")
+	}
+	if !strings.Contains(slackStr, "*FULL MEETING SUMMARY*") {
+		t.Error("slack summary missing full meeting summary section")
+	}
+	if !strings.Contains(slackStr, "[Full Summary on Shared Drive](PLACEHOLDER_URL)") {
+		t.Error("slack summary missing placeholder link")
+	}
+	if result.SlackWarning != "" {
+		t.Errorf("unexpected slack warning: %s", result.SlackWarning)
+	}
+}
+
+func TestServiceValidationFailureNoSlackFile(t *testing.T) {
+	commandDir := t.TempDir()
+	writeExecutable(t, commandDir, "fake-ai-invalid-slack", `#!/usr/bin/env bash
+cat >/dev/null
+echo "Loaded cached credentials."
+`)
+	t.Setenv("PATH", commandDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	cfg := newTestConfig(t, "fake-ai-invalid-slack")
+	service := NewService(cfg, nil)
+	meetingDir := createMeetingDir(t, "2026-02-04", "transcript.txt", "transcript content")
+
+	session, err := service.Prepare(RunRequest{UserName: "Tester", MeetingDir: meetingDir})
+	if err != nil {
+		t.Fatalf("prepare failed: %v", err)
+	}
+
+	_, err = session.Run()
+	if err == nil {
+		t.Fatal("expected validation failure")
+	}
+
+	summaryMatches, _ := filepath.Glob(filepath.Join(meetingDir, "*-cadence-call-summary*.md"))
+	if len(summaryMatches) != 0 {
+		t.Fatalf("expected no summary files on validation failure, found %v", summaryMatches)
+	}
+}
+
 func readArgTokens(t *testing.T, path string) []string {
 	t.Helper()
 
