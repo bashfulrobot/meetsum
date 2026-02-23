@@ -233,6 +233,13 @@ Process the transcript in %s and generate a structured meeting summary following
 The meeting date should be: %s
 The customer name should be: %s (uppercase: %s)
 
+IMPORTANT OUTPUT INSTRUCTIONS:
+- Output ONLY the summary content directly with its Slack-compatible markdown formatting intact.
+- Do NOT wrap the output in triple-backtick code fences.
+- Do NOT attempt to save, write, or create any files.
+- Do NOT include any preamble, postamble, or conversational text such as "Here is the summary" or "Is there anything else".
+- The ENTIRE output must be the summary itself and nothing else.
+
 TRANSCRIPT:
 %s
 
@@ -295,12 +302,7 @@ func (p *Processor) cleanAIOutput(output string) string {
 
 	for _, line := range lines {
 		// Skip error messages and AI chatter
-		if strings.Contains(line, "Loaded cached credentials") ||
-			strings.Contains(line, "Error executing tool") ||
-			strings.Contains(line, "Tool \"write_file\" not found") ||
-			strings.Contains(line, "I was unable to create") ||
-			strings.Contains(line, "Here is the content") ||
-			strings.Contains(line, "You can save it as") {
+		if isAIChatterLine(line) {
 			continue
 		}
 
@@ -337,26 +339,16 @@ func (p *Processor) cleanAIOutput(output string) string {
 		return strings.TrimSpace(strings.Join(markdownLines, "\n"))
 	}
 
-	// Fallback: try to find content after common AI error patterns
-	cleanedOutput := output
-	errorPatterns := []string{
-		"Loaded cached credentials.",
-		"Error executing tool write_file:",
-		"Tool \"write_file\" not found in registry.",
-		"I was unable to create the file directly.",
-		"Here is the content for the meeting summary.",
-		"You can save it as",
+	// Fallback: strip all chatter lines from the raw output
+	var fallbackLines []string
+	for _, line := range lines {
+		if isAIChatterLine(line) {
+			continue
+		}
+		fallbackLines = append(fallbackLines, line)
 	}
 
-	for _, pattern := range errorPatterns {
-		if idx := strings.Index(cleanedOutput, pattern); idx != -1 {
-			// Find the end of this line and start from the next line
-			nextLine := strings.Index(cleanedOutput[idx:], "\n")
-			if nextLine != -1 {
-				cleanedOutput = cleanedOutput[idx+nextLine+1:]
-			}
-		}
-	}
+	cleanedOutput := strings.Join(fallbackLines, "\n")
 
 	// Remove any remaining markdown code block markers
 	cleanedOutput = strings.ReplaceAll(cleanedOutput, "```markdown", "")
@@ -365,10 +357,69 @@ func (p *Processor) cleanAIOutput(output string) string {
 	return strings.TrimSpace(cleanedOutput)
 }
 
+// aiChatterPatterns are substrings that indicate a line is AI conversational
+// noise rather than actual summary content. Patterns must be specific enough
+// to avoid false positives against legitimate meeting summary text (e.g.
+// action items like "Let me know if you need the report").
+var aiChatterPatterns = []string{
+	// Gemini CLI stderr/tool noise
+	"Loaded cached credentials",
+	"Error executing tool",
+	"Tool \"write_file\" not found",
+	// Conversational preamble/postamble from the AI
+	"I was unable to create the file",
+	"Here is the content for the meeting summary",
+	"You can save it as",
+	"I have generated the meeting summary",
+	"I've generated the meeting summary",
+	"Is there anything else I can help you with",
+	"Is there anything else you would like",
+	"Is there anything else you'd like",
+	"I have saved the summary",
+	"I've saved the summary",
+	"I have created the file",
+	"I've created the file",
+	"I have written the summary",
+	"I've written the summary",
+	"Here's the meeting summary",
+	"Here is the meeting summary",
+	"Below is the meeting summary",
+	"The summary has been saved",
+	"The summary has been written",
+	"and saved it to",
+}
+
+// isAIChatterLine returns true if a line matches known AI conversational noise.
+func isAIChatterLine(line string) bool {
+	for _, pattern := range aiChatterPatterns {
+		if strings.Contains(line, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateSummaryContent ensures generated summary output is safe to persist.
 func (p *Processor) ValidateSummaryContent(content string) error {
 	if strings.TrimSpace(content) == "" {
 		return fmt.Errorf("generated summary output is empty after cleaning")
+	}
+
+	// Reject output that is purely AI conversational chatter (no actual summary).
+	lines := strings.Split(strings.TrimSpace(content), "\n")
+	nonEmpty := 0
+	for _, l := range lines {
+		if strings.TrimSpace(l) != "" {
+			nonEmpty++
+		}
+	}
+	if nonEmpty <= 3 {
+		// Very short output is suspicious; check for chatter patterns.
+		for _, pattern := range aiChatterPatterns {
+			if strings.Contains(content, pattern) {
+				return fmt.Errorf("generated summary appears to contain AI conversational text rather than actual summary content")
+			}
+		}
 	}
 
 	return nil
