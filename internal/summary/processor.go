@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bashfulrobot/meetsum/config"
+	"github.com/bashfulrobot/meetsum/internal/ai"
 	"github.com/bitfield/script"
 	"github.com/charmbracelet/log"
 )
@@ -21,6 +22,12 @@ type Processor struct {
 	userName       string
 	meetingDir     string
 	transcriptPath string
+}
+
+// GeneratedSummaryOutput captures both cleaned and raw AI output.
+type GeneratedSummaryOutput struct {
+	Cleaned string
+	Raw     string
 }
 
 // NewProcessor creates a new summary processor
@@ -41,37 +48,9 @@ func (p *Processor) SetMeetingDir(dir string) {
 	p.meetingDir = dir
 }
 
-// FindTranscriptFile locates the transcript file in the meeting directory.
-// It first looks for the standard transcript.txt, then falls back to
-// finding dated transcripts matching YYYY-MM-DD-transcript.txt pattern.
+// FindTranscriptFile resolves transcript source with the 0/1/many .txt contract.
 func (p *Processor) FindTranscriptFile() (string, error) {
-	// First, try the default transcript.txt
-	defaultPath := p.config.GetTranscriptPath(p.meetingDir)
-	if _, err := os.Stat(defaultPath); err == nil {
-		return defaultPath, nil
-	}
-
-	// If not found, look for dated transcript files (YYYY-MM-DD-transcript.txt)
-	pattern := filepath.Join(p.meetingDir, "*-transcript.txt")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return "", fmt.Errorf("failed to search for transcript files: %w", err)
-	}
-
-	// Filter matches to only include valid date-prefixed files
-	datePattern := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-transcript\.txt$`)
-	for _, match := range matches {
-		filename := filepath.Base(match)
-		if datePattern.MatchString(filename) {
-			// Validate it's a real date
-			datePart := filename[:10] // YYYY-MM-DD
-			if _, err := time.Parse("2006-01-02", datePart); err == nil {
-				return match, nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no transcript file found in %s (looked for transcript.txt and YYYY-MM-DD-transcript.txt)", p.meetingDir)
+	return FindSingleTranscriptCandidate(p.meetingDir)
 }
 
 // ValidateRequiredFiles checks if all required files exist
@@ -122,6 +101,11 @@ func (p *Processor) LoadTranscript() (string, error) {
 		return "", fmt.Errorf("failed to load transcript: %w", err)
 	}
 	return content, nil
+}
+
+// TranscriptPath returns the transcript path selected during validation.
+func (p *Processor) TranscriptPath() string {
+	return p.transcriptPath
 }
 
 // LoadContext reads the optional POV input file if it exists
@@ -198,28 +182,37 @@ func (p *Processor) GenerateOutputFilename() (string, error) {
 	}
 }
 
-// GenerateSummary processes the meeting and generates the summary
+// GenerateSummary processes the meeting and generates a cleaned summary.
 func (p *Processor) GenerateSummary() (string, error) {
+	output, err := p.GenerateSummaryOutput()
+	if err != nil {
+		return "", err
+	}
+	return output.Cleaned, nil
+}
+
+// GenerateSummaryOutput processes the meeting and returns cleaned + raw output.
+func (p *Processor) GenerateSummaryOutput() (GeneratedSummaryOutput, error) {
 	// Load all required content
 	instructions, err := p.LoadInstructions()
 	if err != nil {
-		return "", err
+		return GeneratedSummaryOutput{}, err
 	}
 
 	transcript, err := p.LoadTranscript()
 	if err != nil {
-		return "", err
+		return GeneratedSummaryOutput{}, err
 	}
 
 	context, err := p.LoadContext()
 	if err != nil {
-		return "", err
+		return GeneratedSummaryOutput{}, err
 	}
 
 	// Extract date and customer info for the prompt
 	customerNameProper, customerNameUpper, err := p.ExtractCustomerName()
 	if err != nil {
-		return "", err
+		return GeneratedSummaryOutput{}, err
 	}
 
 	date := p.ExtractDateFromPath()
@@ -230,10 +223,12 @@ func (p *Processor) GenerateSummary() (string, error) {
 		titleDate = "UNDATED"
 	}
 
+	transcriptFile := filepath.Base(p.transcriptPath)
+
 	// Prepare the prompt
 	prompt := fmt.Sprintf(`%s
 
-Process the transcript in transcript.txt and generate a structured meeting summary following the provided instructions. Use the current working directory path to derive the customer name. Write the summary from %s's first-person perspective.
+Process the transcript in %s and generate a structured meeting summary following the provided instructions. Write the summary from %s's first-person perspective.
 
 The meeting date should be: %s
 The customer name should be: %s (uppercase: %s)
@@ -241,23 +236,32 @@ The customer name should be: %s (uppercase: %s)
 TRANSCRIPT:
 %s
 
-%s`, instructions, p.userName, titleDate, customerNameProper, customerNameUpper, transcript, context)
+%s`, instructions, transcriptFile, p.userName, titleDate, customerNameProper, customerNameUpper, transcript, context)
 
 	// Execute AI command with separate stdout/stderr capture
 	result, stderr, err := p.executeAICommand(prompt)
 	if err != nil {
 		p.logCommandError(stderr, err)
-		return "", fmt.Errorf("failed to generate summary: %w", err)
+		return GeneratedSummaryOutput{}, fmt.Errorf("failed to generate summary: %w", err)
 	}
 
 	// Clean the AI output to extract only the markdown content
 	cleanedResult := p.cleanAIOutput(result)
-	return cleanedResult, nil
+	return GeneratedSummaryOutput{
+		Cleaned: cleanedResult,
+		Raw:     result,
+	}, nil
 }
 
 // executeAICommand runs the AI command and captures stdout/stderr separately
 func (p *Processor) executeAICommand(prompt string) (stdout string, stderr string, err error) {
-	cmd := exec.Command(p.config.AI.Command)
+	command, args, err := ai.ResolveCommandArgs(p.config.AI.Command)
+	if err != nil {
+		return "", "", err
+	}
+
+	cmd := exec.Command(command, args...)
+	cmd.Dir = p.meetingDir
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdin = strings.NewReader(prompt)
@@ -361,6 +365,26 @@ func (p *Processor) cleanAIOutput(output string) string {
 	return strings.TrimSpace(cleanedOutput)
 }
 
+// ValidateSummaryContent ensures generated summary output is safe to persist.
+func (p *Processor) ValidateSummaryContent(content string) error {
+	if strings.TrimSpace(content) == "" {
+		return fmt.Errorf("generated summary output is empty after cleaning")
+	}
+
+	return nil
+}
+
+// SaveRawOutputDiagnostics stores raw AI output when summary validation fails.
+func (p *Processor) SaveRawOutputDiagnostics(rawOutput string) (string, error) {
+	diagnosticPath := filepath.Join(p.meetingDir, "summary-raw-output.txt")
+	content := strings.TrimSpace(rawOutput) + "\n"
+	if err := os.WriteFile(diagnosticPath, []byte(content), 0644); err != nil {
+		return "", fmt.Errorf("failed to save raw output diagnostics: %w", err)
+	}
+
+	return diagnosticPath, nil
+}
+
 // SaveSummary saves the generated summary to a file
 func (p *Processor) SaveSummary(content string) (string, error) {
 	filename, err := p.GenerateOutputFilename()
@@ -384,7 +408,7 @@ func (p *Processor) SaveSummary(content string) (string, error) {
 	return outputPath, nil
 }
 
-// RenameTranscriptFile renames transcript.txt to a dated format based on the folder date.
+// RenameTranscriptFile renames the selected transcript file to a dated format based on the folder date.
 // Returns the new filename if renamed, empty string if skipped, or error if failed.
 // Skips rename if: already dated, no date in folder path, or transcriptPath not set.
 func (p *Processor) RenameTranscriptFile() (string, error) {

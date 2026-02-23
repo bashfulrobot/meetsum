@@ -3,227 +3,219 @@ package summary
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bashfulrobot/meetsum/config"
 )
 
 func TestFindTranscriptFile(t *testing.T) {
-	// Load config with defaults
-	if err := config.LoadConfig(); err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
-
-	t.Run("finds standard transcript.txt", func(t *testing.T) {
+	t.Run("finds exactly one txt transcript candidate", func(t *testing.T) {
 		testDir := t.TempDir()
-		transcriptPath := filepath.Join(testDir, "transcript.txt")
-		if err := os.WriteFile(transcriptPath, []byte("test content"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
+		expectedPath := filepath.Join(testDir, "meeting-notes.txt")
+		if err := os.WriteFile(expectedPath, []byte("test content"), 0644); err != nil {
+			t.Fatalf("failed to create transcript file: %v", err)
 		}
 
-		processor := NewProcessor(config.AppConfig, nil)
-		processor.SetMeetingDir(testDir)
-
+		processor := newTestProcessor(t, testDir)
 		found, err := processor.FindTranscriptFile()
 		if err != nil {
-			t.Errorf("Expected no error, got: %v", err)
+			t.Fatalf("expected no error, got: %v", err)
 		}
-		if found != transcriptPath {
-			t.Errorf("Expected %s, got %s", transcriptPath, found)
+
+		if found != expectedPath {
+			t.Fatalf("expected %s, got %s", expectedPath, found)
 		}
 	})
 
-	t.Run("finds dated transcript when standard missing", func(t *testing.T) {
+	t.Run("treats TXT extension case-insensitively", func(t *testing.T) {
 		testDir := t.TempDir()
-		datedPath := filepath.Join(testDir, "2026-02-04-transcript.txt")
-		if err := os.WriteFile(datedPath, []byte("test content"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
+		expectedPath := filepath.Join(testDir, "Transcript.TXT")
+		if err := os.WriteFile(expectedPath, []byte("test content"), 0644); err != nil {
+			t.Fatalf("failed to create transcript file: %v", err)
 		}
 
-		processor := NewProcessor(config.AppConfig, nil)
-		processor.SetMeetingDir(testDir)
-
+		processor := newTestProcessor(t, testDir)
 		found, err := processor.FindTranscriptFile()
 		if err != nil {
-			t.Errorf("Expected no error, got: %v", err)
+			t.Fatalf("expected no error, got: %v", err)
 		}
-		if found != datedPath {
-			t.Errorf("Expected %s, got %s", datedPath, found)
+
+		if found != expectedPath {
+			t.Fatalf("expected %s, got %s", expectedPath, found)
 		}
 	})
 
-	t.Run("prefers standard transcript.txt over dated", func(t *testing.T) {
+	t.Run("returns error when no txt transcript candidates exist", func(t *testing.T) {
 		testDir := t.TempDir()
-		standardPath := filepath.Join(testDir, "transcript.txt")
-		datedPath := filepath.Join(testDir, "2026-02-04-transcript.txt")
-		if err := os.WriteFile(standardPath, []byte("standard"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
-		if err := os.WriteFile(datedPath, []byte("dated"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
+		if err := os.WriteFile(filepath.Join(testDir, "notes.md"), []byte("test"), 0644); err != nil {
+			t.Fatalf("failed to create non-transcript file: %v", err)
 		}
 
-		processor := NewProcessor(config.AppConfig, nil)
-		processor.SetMeetingDir(testDir)
-
-		found, err := processor.FindTranscriptFile()
-		if err != nil {
-			t.Errorf("Expected no error, got: %v", err)
-		}
-		if found != standardPath {
-			t.Errorf("Expected standard path %s, got %s", standardPath, found)
-		}
-	})
-
-	t.Run("ignores invalid date format", func(t *testing.T) {
-		testDir := t.TempDir()
-		// Invalid: wrong format
-		invalidPath := filepath.Join(testDir, "02-04-2026-transcript.txt")
-		if err := os.WriteFile(invalidPath, []byte("invalid"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
-
-		processor := NewProcessor(config.AppConfig, nil)
-		processor.SetMeetingDir(testDir)
-
+		processor := newTestProcessor(t, testDir)
 		_, err := processor.FindTranscriptFile()
 		if err == nil {
-			t.Error("Expected error for missing valid transcript")
+			t.Fatalf("expected error when no .txt transcript candidates exist")
+		}
+
+		if !strings.Contains(err.Error(), "no transcript candidate found") {
+			t.Fatalf("expected no-candidate error, got: %v", err)
 		}
 	})
 
-	t.Run("returns error when no transcript found", func(t *testing.T) {
+	t.Run("returns deterministic candidate list when transcript source is ambiguous", func(t *testing.T) {
 		testDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(testDir, "zeta.txt"), []byte("zeta"), 0644); err != nil {
+			t.Fatalf("failed to create transcript file: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(testDir, "alpha.txt"), []byte("alpha"), 0644); err != nil {
+			t.Fatalf("failed to create transcript file: %v", err)
+		}
 
-		processor := NewProcessor(config.AppConfig, nil)
-		processor.SetMeetingDir(testDir)
-
+		processor := newTestProcessor(t, testDir)
 		_, err := processor.FindTranscriptFile()
 		if err == nil {
-			t.Error("Expected error when no transcript found")
+			t.Fatalf("expected ambiguity error")
+		}
+
+		errText := err.Error()
+		if !strings.Contains(errText, "alpha.txt, zeta.txt") {
+			t.Fatalf("expected sorted candidate list in error, got: %s", errText)
 		}
 	})
 }
 
 func TestRenameTranscriptFile(t *testing.T) {
-	if err := config.LoadConfig(); err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
-
-	t.Run("renames transcript.txt to dated format", func(t *testing.T) {
-		// Create structure: tempdir/2026-02-04/transcript.txt
+	t.Run("renames selected transcript to dated format", func(t *testing.T) {
 		baseDir := t.TempDir()
 		testDir := filepath.Join(baseDir, "2026-02-04")
 		if err := os.MkdirAll(testDir, 0755); err != nil {
-			t.Fatalf("Failed to create test dir: %v", err)
-		}
-		transcriptPath := filepath.Join(testDir, "transcript.txt")
-		if err := os.WriteFile(transcriptPath, []byte("test"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
+			t.Fatalf("failed to create test dir: %v", err)
 		}
 
-		processor := NewProcessor(config.AppConfig, nil)
-		processor.SetMeetingDir(testDir)
+		transcriptPath := filepath.Join(testDir, "transcript.txt")
+		if err := os.WriteFile(transcriptPath, []byte("test"), 0644); err != nil {
+			t.Fatalf("failed to create transcript file: %v", err)
+		}
+
+		processor := newTestProcessor(t, testDir)
 		if err := processor.ValidateRequiredFiles(); err != nil {
 			t.Fatalf("ValidateRequiredFiles failed: %v", err)
 		}
 
 		newName, err := processor.RenameTranscriptFile()
 		if err != nil {
-			t.Errorf("Expected no error, got: %v", err)
+			t.Fatalf("expected no error, got: %v", err)
 		}
 		if newName != "2026-02-04-transcript.txt" {
-			t.Errorf("Expected '2026-02-04-transcript.txt', got '%s'", newName)
+			t.Fatalf("expected 2026-02-04-transcript.txt, got %s", newName)
 		}
 
-		// Verify file was renamed
 		newPath := filepath.Join(testDir, "2026-02-04-transcript.txt")
 		if _, err := os.Stat(newPath); os.IsNotExist(err) {
-			t.Error("Renamed file does not exist")
+			t.Fatalf("renamed file does not exist")
 		}
 		if _, err := os.Stat(transcriptPath); !os.IsNotExist(err) {
-			t.Error("Original file still exists")
+			t.Fatalf("original file still exists")
 		}
 	})
 
-	t.Run("skips rename for already dated transcript", func(t *testing.T) {
+	t.Run("skips rename when transcript is already dated", func(t *testing.T) {
 		baseDir := t.TempDir()
 		testDir := filepath.Join(baseDir, "2026-02-04")
 		if err := os.MkdirAll(testDir, 0755); err != nil {
-			t.Fatalf("Failed to create test dir: %v", err)
+			t.Fatalf("failed to create test dir: %v", err)
 		}
+
 		datedPath := filepath.Join(testDir, "2026-02-04-transcript.txt")
 		if err := os.WriteFile(datedPath, []byte("test"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
+			t.Fatalf("failed to create transcript file: %v", err)
 		}
 
-		processor := NewProcessor(config.AppConfig, nil)
-		processor.SetMeetingDir(testDir)
+		processor := newTestProcessor(t, testDir)
 		if err := processor.ValidateRequiredFiles(); err != nil {
 			t.Fatalf("ValidateRequiredFiles failed: %v", err)
 		}
 
 		newName, err := processor.RenameTranscriptFile()
 		if err != nil {
-			t.Errorf("Expected no error, got: %v", err)
+			t.Fatalf("expected no error, got: %v", err)
 		}
 		if newName != "" {
-			t.Errorf("Expected empty string (no rename), got '%s'", newName)
+			t.Fatalf("expected no rename, got %s", newName)
 		}
 	})
 
-	t.Run("skips rename when no date in folder path", func(t *testing.T) {
-		testDir := t.TempDir() // No date in path
+	t.Run("skips rename when no date exists in meeting path", func(t *testing.T) {
+		testDir := t.TempDir()
 		transcriptPath := filepath.Join(testDir, "transcript.txt")
 		if err := os.WriteFile(transcriptPath, []byte("test"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
+			t.Fatalf("failed to create transcript file: %v", err)
 		}
 
-		processor := NewProcessor(config.AppConfig, nil)
-		processor.SetMeetingDir(testDir)
+		processor := newTestProcessor(t, testDir)
 		if err := processor.ValidateRequiredFiles(); err != nil {
 			t.Fatalf("ValidateRequiredFiles failed: %v", err)
 		}
 
 		newName, err := processor.RenameTranscriptFile()
 		if err != nil {
-			t.Errorf("Expected no error, got: %v", err)
+			t.Fatalf("expected no error, got: %v", err)
 		}
 		if newName != "" {
-			t.Errorf("Expected empty string (no rename), got '%s'", newName)
+			t.Fatalf("expected no rename, got %s", newName)
 		}
 
-		// Verify file was NOT renamed
 		if _, err := os.Stat(transcriptPath); os.IsNotExist(err) {
-			t.Error("Original file should still exist")
+			t.Fatalf("original transcript file should still exist")
 		}
 	})
 
-	t.Run("errors when destination exists", func(t *testing.T) {
+	t.Run("errors when destination transcript already exists", func(t *testing.T) {
 		baseDir := t.TempDir()
 		testDir := filepath.Join(baseDir, "2026-02-04")
 		if err := os.MkdirAll(testDir, 0755); err != nil {
-			t.Fatalf("Failed to create test dir: %v", err)
-		}
-		// Create both files
-		transcriptPath := filepath.Join(testDir, "transcript.txt")
-		datedPath := filepath.Join(testDir, "2026-02-04-transcript.txt")
-		if err := os.WriteFile(transcriptPath, []byte("original"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
-		if err := os.WriteFile(datedPath, []byte("existing"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
+			t.Fatalf("failed to create test dir: %v", err)
 		}
 
-		processor := NewProcessor(config.AppConfig, nil)
-		processor.SetMeetingDir(testDir)
+		if err := os.WriteFile(filepath.Join(testDir, "transcript.txt"), []byte("original"), 0644); err != nil {
+			t.Fatalf("failed to create transcript file: %v", err)
+		}
+
+		processor := newTestProcessor(t, testDir)
 		if err := processor.ValidateRequiredFiles(); err != nil {
 			t.Fatalf("ValidateRequiredFiles failed: %v", err)
+		}
+
+		if err := os.WriteFile(filepath.Join(testDir, "2026-02-04-transcript.txt"), []byte("existing"), 0644); err != nil {
+			t.Fatalf("failed to create dated transcript file: %v", err)
 		}
 
 		_, err := processor.RenameTranscriptFile()
 		if err == nil {
-			t.Error("Expected error when destination exists")
+			t.Fatalf("expected error when destination exists")
 		}
 	})
+}
+
+func newTestProcessor(t *testing.T, meetingDir string) *Processor {
+	t.Helper()
+
+	automationDir := t.TempDir()
+	instructionsFile := "instructions.md"
+	instructionsPath := filepath.Join(automationDir, instructionsFile)
+	if err := os.WriteFile(instructionsPath, []byte("test instructions"), 0644); err != nil {
+		t.Fatalf("failed to create instructions file: %v", err)
+	}
+
+	cfg := &config.Config{}
+	cfg.Paths.AutomationDir = automationDir
+	cfg.Paths.InstructionsFile = instructionsFile
+	cfg.Files.PovInput = "pov-input.md"
+	cfg.AI.Command = "echo"
+
+	processor := NewProcessor(cfg, nil)
+	processor.SetMeetingDir(meetingDir)
+	processor.SetUserName("Test User")
+	return processor
 }
