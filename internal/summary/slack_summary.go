@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/bitfield/script"
 )
 
 var (
@@ -115,16 +113,9 @@ func (p *Processor) SaveSlackSummary(content string) (string, error) {
 	}
 
 	outputPath := filepath.Join(p.meetingDir, filename)
-
-	if !strings.HasSuffix(content, "\n") {
-		content += "\n"
-	}
-
-	n, err := script.Echo(content).WriteFile(outputPath)
-	if err != nil {
+	if err := writeContentFile(content, outputPath); err != nil {
 		return "", fmt.Errorf("failed to save slack summary: %w", err)
 	}
-	_ = n
 
 	return outputPath, nil
 }

@@ -40,12 +40,13 @@ Reads meeting transcripts and generates formatted summaries with context.`,
 	RunE: runMeetSum,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// SetVersion sets the version information for the application
+// SetVersion sets the version information for the application.
+// Also sets rootCmd.Version so cobra's built-in --version flag works.
 func SetVersion(v, bt, gc string) {
 	version = v
 	buildTime = bt
 	gitCommit = gc
+	rootCmd.Version = v
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -220,7 +221,7 @@ func runMeetSum(cmd *cobra.Command, args []string) error {
 	} else {
 		result, err := ui.RunWithSpinner(
 			fmt.Sprintf("🧠 %s is processing your meeting transcript...", aiCommand),
-			func() (interface{}, error) {
+			func() (any, error) {
 				return session.Run()
 			},
 		)

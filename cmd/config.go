@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/bashfulrobot/meetsum/config"
 	"github.com/bashfulrobot/meetsum/internal/ui"
@@ -43,13 +44,6 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		},
 		{
 			Category:    "Files",
-			Setting:     "transcript",
-			Value:       config.AppConfig.Files.Transcript,
-			Default:     "transcript.txt",
-			Description: "Deprecated: transcript source is auto-discovered from exactly one .txt file",
-		},
-		{
-			Category:    "Files",
 			Setting:     "pov_input",
 			Value:       config.AppConfig.Files.PovInput,
 			Default:     "pov-input.md",
@@ -72,14 +66,14 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		{
 			Category:    "Features",
 			Setting:     "trace_mode",
-			Value:       boolToString(config.AppConfig.Features.TraceMode),
+			Value:       strconv.FormatBool(config.AppConfig.Features.TraceMode),
 			Default:     "false",
 			Description: "Enable detailed output and disable loading indicators",
 		},
 		{
 			Category:    "Features",
 			Setting:     "file_browser",
-			Value:       boolToString(config.AppConfig.Features.FileBrowser),
+			Value:       strconv.FormatBool(config.AppConfig.Features.FileBrowser),
 			Default:     "true",
 			Description: "Enable interactive file picker for directory selection",
 		},
@@ -94,13 +88,6 @@ func runConfig(cmd *cobra.Command, args []string) error {
 
 	// Display the configuration table
 	return ui.ShowConfigurationTable(configItems)
-}
-
-func boolToString(b bool) string {
-	if b {
-		return "true"
-	}
-	return "false"
 }
 
 func aiArgsSummary(args []string) string {

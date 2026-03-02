@@ -40,20 +40,6 @@ func ResolveConfiguredInvocation(configuredCommand string, configuredArgs []stri
 	return parts[0], parts[1:], nil
 }
 
-// ResolveCommand extracts the executable name from configured ai.command.
-func ResolveCommand(configured string) (string, error) {
-	command, _, err := ResolveConfiguredInvocation(configured, nil)
-	if err != nil {
-		return "", err
-	}
-	return command, nil
-}
-
-// ResolveCommandArgs parses configured ai.command into executable and arguments.
-func ResolveCommandArgs(configured string) (string, []string, error) {
-	return ResolveConfiguredInvocation(configured, nil)
-}
-
 // CheckConfiguredCommandAvailable verifies the resolved executable exists in PATH.
 func CheckConfiguredCommandAvailable(configuredCommand string, configuredArgs []string) (string, error) {
 	command, _, err := ResolveConfiguredInvocation(configuredCommand, configuredArgs)
@@ -68,7 +54,3 @@ func CheckConfiguredCommandAvailable(configuredCommand string, configuredArgs []
 	return command, nil
 }
 
-// CheckCommandAvailable verifies the configured command exists in PATH.
-func CheckCommandAvailable(configured string) (string, error) {
-	return CheckConfiguredCommandAvailable(configured, nil)
-}

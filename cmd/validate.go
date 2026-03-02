@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/bashfulrobot/meetsum/config"
 	"github.com/bashfulrobot/meetsum/internal/summary"
@@ -23,24 +22,14 @@ validates the configuration files and directory structure.`,
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	var targetDir string
-
 	if len(args) > 0 {
-		targetDir = args[0]
-		return validateMeetingDirectory(targetDir)
-	} else {
-		return validateConfiguration()
+		return validateMeetingDirectory(args[0])
 	}
+	return validateConfiguration()
 }
 
 func validateMeetingDirectory(meetingDir string) error {
-	// Expand home directory if needed
-	if strings.HasPrefix(meetingDir, "~/") {
-		homeDir, err := os.UserHomeDir()
-		if err == nil {
-			meetingDir = filepath.Join(homeDir, meetingDir[2:])
-		}
-	}
+	meetingDir = expandPath(meetingDir)
 
 	// Check if directory exists
 	if _, err := os.Stat(meetingDir); os.IsNotExist(err) {

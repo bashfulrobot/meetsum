@@ -11,12 +11,12 @@ type SpinnerModel struct {
 	spinner spinner.Model
 	message string
 	done    bool
-	result  interface{}
+	result  any
 	err     error
 }
 
 type SpinnerFinishedMsg struct {
-	Result interface{}
+	Result any
 	Err    error
 }
 
@@ -68,7 +68,7 @@ func (m SpinnerModel) View() string {
 }
 
 // RunWithSpinner executes a function with a spinner display
-func RunWithSpinner(message string, fn func() (interface{}, error)) (interface{}, error) {
+func RunWithSpinner(message string, fn func() (any, error)) (any, error) {
 	model := NewSpinnerModel(message)
 
 	p := tea.NewProgram(model)

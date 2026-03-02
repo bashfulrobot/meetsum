@@ -17,8 +17,7 @@ type Config struct {
 	} `mapstructure:"paths"`
 
 	Files struct {
-		Transcript string `mapstructure:"transcript"`
-		PovInput   string `mapstructure:"pov_input"`
+		PovInput string `mapstructure:"pov_input"`
 	} `mapstructure:"files"`
 
 	AI struct {
@@ -57,17 +56,17 @@ func LoadConfig() error {
 	viper.AddConfigPath("/etc/meetsum")
 
 	// Set defaults
-	viper.SetDefault("paths.file_browser_root_dir", filepath.Join(os.Getenv("HOME"), "Documents", "Company", "Customers"))
-	viper.SetDefault("paths.automation_dir", filepath.Join(os.Getenv("HOME"), "Documents", "Company", "automation", "summaries"))
+	homeDir, _ := os.UserHomeDir()
+	viper.SetDefault("paths.file_browser_root_dir", filepath.Join(homeDir, "Documents", "Company", "Customers"))
+	viper.SetDefault("paths.automation_dir", filepath.Join(homeDir, "Documents", "Company", "automation", "summaries"))
 	viper.SetDefault("paths.instructions_file", "Meeting-summary-llm-instructions.md")
-	viper.SetDefault("files.transcript", "transcript.txt")
 	viper.SetDefault("files.pov_input", "pov-input.md")
 	viper.SetDefault("ai.command", "gemini")
 	viper.SetDefault("ai.args", []string{})
 	viper.SetDefault("features.trace_mode", false)
 	viper.SetDefault("features.file_browser", true)
 	viper.SetDefault("logging.level", "info")
-	viper.SetDefault("logging.file", filepath.Join(os.Getenv("HOME"), ".config", "meetsum", "error.log"))
+	viper.SetDefault("logging.file", filepath.Join(homeDir, ".config", "meetsum", "error.log"))
 	viper.SetDefault("logging.output", "screen")
 
 	// Try to read config file
@@ -87,11 +86,6 @@ func (c *Config) GetInstructionsPath() string {
 	return filepath.Join(c.Paths.AutomationDir, c.Paths.InstructionsFile)
 }
 
-// GetTranscriptPath returns the full path to the transcript file in a meeting directory
-func (c *Config) GetTranscriptPath(meetingDir string) string {
-	return filepath.Join(meetingDir, c.Files.Transcript)
-}
-
 // GetPovInputPath returns the full path to the POV input file in a meeting directory
 func (c *Config) GetPovInputPath(meetingDir string) string {
 	return filepath.Join(meetingDir, c.Files.PovInput)
@@ -101,8 +95,10 @@ func (c *Config) GetPovInputPath(meetingDir string) string {
 func (c *Config) GetLogFilePath() string {
 	path := c.Logging.File
 	if strings.HasPrefix(path, "~/") {
-		homeDir, _ := os.UserHomeDir()
-		path = filepath.Join(homeDir, path[2:])
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(homeDir, path[2:])
+		}
 	}
 	return path
 }

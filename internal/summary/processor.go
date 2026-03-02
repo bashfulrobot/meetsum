@@ -123,8 +123,9 @@ func (p *Processor) LoadContext() (string, error) {
 	return fmt.Sprintf("CONTEXT GUIDE:\n%s", content), nil
 }
 
-// ExtractCustomerName extracts customer name from the meeting directory path
-func (p *Processor) ExtractCustomerName() (string, string, error) {
+// ExtractCustomerName extracts customer name from the meeting directory path.
+// Returns (proper-case name, UPPER-CASE name).
+func (p *Processor) ExtractCustomerName() (string, string) {
 	// Extract customer name from path like /home/dustin/Documents/Kong/Customers/CustomerName/date
 	customerNameRaw := ""
 	if strings.Contains(p.meetingDir, "/Customers/") {
@@ -143,10 +144,7 @@ func (p *Processor) ExtractCustomerName() (string, string, error) {
 		customerNameRaw = filepath.Base(parentDir)
 	}
 
-	customerNameProper := customerNameRaw
-	customerNameUpper := strings.ToUpper(customerNameRaw)
-
-	return customerNameProper, customerNameUpper, nil
+	return customerNameRaw, strings.ToUpper(customerNameRaw)
 }
 
 // ExtractDateFromPath extracts date from folder path like "2025-09-24"
@@ -167,19 +165,13 @@ func (p *Processor) ExtractDateFromPath() string {
 
 // GenerateOutputFilename creates the output filename
 func (p *Processor) GenerateOutputFilename() (string, error) {
-	customerNameProper, _, err := p.ExtractCustomerName()
-	if err != nil {
-		return "", err
-	}
+	name, _ := p.ExtractCustomerName()
 
 	date := p.ExtractDateFromPath()
-	if date != "" {
-		filename := fmt.Sprintf("%s-%s-cadence-call-summary.md", date, customerNameProper)
-		return filename, nil
-	} else {
-		filename := fmt.Sprintf("%s-cadence-call-summary.md", customerNameProper)
-		return filename, nil
+	if date == "" {
+		return fmt.Sprintf("%s-cadence-call-summary.md", name), nil
 	}
+	return fmt.Sprintf("%s-%s-cadence-call-summary.md", date, name), nil
 }
 
 // GenerateSummary processes the meeting and generates a cleaned summary.
@@ -210,17 +202,12 @@ func (p *Processor) GenerateSummaryOutput() (GeneratedSummaryOutput, error) {
 	}
 
 	// Extract date and customer info for the prompt
-	customerNameProper, customerNameUpper, err := p.ExtractCustomerName()
-	if err != nil {
-		return GeneratedSummaryOutput{}, err
-	}
+	customerNameProper, customerNameUpper := p.ExtractCustomerName()
 
 	date := p.ExtractDateFromPath()
-	var titleDate string
+	titleDate := "UNDATED"
 	if date != "" {
 		titleDate = date
-	} else {
-		titleDate = "UNDATED"
 	}
 
 	transcriptFile := filepath.Base(p.transcriptPath)
@@ -436,6 +423,15 @@ func (p *Processor) SaveRawOutputDiagnostics(rawOutput string) (string, error) {
 	return diagnosticPath, nil
 }
 
+// writeContentFile writes content to path, ensuring a trailing newline.
+func writeContentFile(content, path string) error {
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	_, err := script.Echo(content).WriteFile(path)
+	return err
+}
+
 // SaveSummary saves the generated summary to a file
 func (p *Processor) SaveSummary(content string) (string, error) {
 	filename, err := p.GenerateOutputFilename()
@@ -444,17 +440,9 @@ func (p *Processor) SaveSummary(content string) (string, error) {
 	}
 
 	outputPath := filepath.Join(p.meetingDir, filename)
-
-	// Ensure content ends with a blank line
-	if !strings.HasSuffix(content, "\n") {
-		content += "\n"
-	}
-
-	n, err := script.Echo(content).WriteFile(outputPath)
-	if err != nil {
+	if err := writeContentFile(content, outputPath); err != nil {
 		return "", fmt.Errorf("failed to save summary: %w", err)
 	}
-	_ = n // Ignore bytes written count
 
 	return outputPath, nil
 }
