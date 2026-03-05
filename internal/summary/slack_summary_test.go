@@ -195,8 +195,8 @@ func TestBuildSlackSummary(t *testing.T) {
 		if !strings.Contains(result, "*FULL MEETING SUMMARY*") {
 			t.Error("missing Full Meeting Summary section")
 		}
-		if !strings.Contains(result, "[Full Summary on Shared Drive](PLACEHOLDER_URL)") {
-			t.Error("missing placeholder link")
+		if !strings.Contains(result, ">>> :thread:") {
+			t.Error("missing thread indicator")
 		}
 	})
 

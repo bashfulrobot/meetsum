@@ -396,8 +396,8 @@ OUT
 	if !strings.Contains(slackStr, "*FULL MEETING SUMMARY*") {
 		t.Error("slack summary missing full meeting summary section")
 	}
-	if !strings.Contains(slackStr, "[Full Summary on Shared Drive](PLACEHOLDER_URL)") {
-		t.Error("slack summary missing placeholder link")
+	if !strings.Contains(slackStr, ">>> :thread:") {
+		t.Error("slack summary missing thread indicator")
 	}
 	if result.SlackWarning != "" {
 		t.Errorf("unexpected slack warning: %s", result.SlackWarning)

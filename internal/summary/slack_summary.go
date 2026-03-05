@@ -87,7 +87,7 @@ func BuildSlackSummary(sections map[string]string) string {
 		}
 	}
 
-	parts = append(parts, "*FULL MEETING SUMMARY*\n\n* [Full Summary on Shared Drive](PLACEHOLDER_URL)")
+	parts = append(parts, "*FULL MEETING SUMMARY*\n\n>>> :thread:")
 
 	return strings.Join(parts, "\n\n")
 }
