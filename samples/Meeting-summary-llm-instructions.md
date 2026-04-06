@@ -76,6 +76,7 @@ Format: `*_yyyy-mm-dd CUSTOMER CADENCE CALL SUMMARY_*`
 - Write from the user's perspective (first person)
 - Avoid overly formal or technical jargon unless necessary
 - Maintain consistency in voice and style
+- **Writing skill override**: If a WRITING STYLE INSTRUCTIONS block is provided in the prompt, its voice and style directives take precedence over the defaults above. Follow the skill's register, anti-patterns, and sentence structure guidance for all prose content while preserving the formatting and section structure rules defined in this document.
 
 ## Technical Requirements
 - All output must be Slack-compatible markdown

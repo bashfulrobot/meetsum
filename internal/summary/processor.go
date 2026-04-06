@@ -108,6 +108,30 @@ func (p *Processor) TranscriptPath() string {
 	return p.transcriptPath
 }
 
+// LoadWritingSkill loads the best available writing skill (writing-style > humanizer > none).
+// Returns the skill content and the skill name used, or empty strings if none found.
+func (p *Processor) LoadWritingSkill() (string, string) {
+	skillPath := p.config.GetWritingSkillPath()
+	if skillPath == "" {
+		return "", ""
+	}
+
+	content, err := script.File(skillPath).String()
+	if err != nil {
+		p.logger.Warn("failed to load writing skill", "path", skillPath, "error", err)
+		return "", ""
+	}
+
+	// Determine which skill was loaded based on path
+	skillName := "humanizer"
+	if strings.Contains(skillPath, "writing-style") {
+		skillName = "writing-style"
+	}
+
+	p.logger.Info("loaded writing skill", "skill", skillName, "path", skillPath)
+	return strings.TrimSpace(content), skillName
+}
+
 // LoadContext reads the optional POV input file if it exists
 func (p *Processor) LoadContext() (string, error) {
 	povPath := p.config.GetPovInputPath(p.meetingDir)
@@ -201,6 +225,16 @@ func (p *Processor) GenerateSummaryOutput() (GeneratedSummaryOutput, error) {
 		return GeneratedSummaryOutput{}, err
 	}
 
+	// Load optional writing skill (writing-style > humanizer > none)
+	writingSkill, skillName := p.LoadWritingSkill()
+	writingSkillBlock := ""
+	if writingSkill != "" {
+		writingSkillBlock = fmt.Sprintf(`WRITING STYLE INSTRUCTIONS (%s skill):
+Apply the following writing style to ALL paragraph content in the summary. This affects tone, word choice, and sentence structure for topic sections, highlights, and action items. Do not alter formatting rules or section structure — only the voice and style of the prose.
+
+%s`, skillName, writingSkill)
+	}
+
 	// Extract date and customer info for the prompt
 	customerNameProper, customerNameUpper := p.ExtractCustomerName()
 
@@ -214,6 +248,8 @@ func (p *Processor) GenerateSummaryOutput() (GeneratedSummaryOutput, error) {
 
 	// Prepare the prompt
 	prompt := fmt.Sprintf(`%s
+
+%s
 
 Process the transcript in %s and generate a structured meeting summary following the provided instructions. Write the summary from %s's first-person perspective.
 
@@ -230,7 +266,7 @@ IMPORTANT OUTPUT INSTRUCTIONS:
 TRANSCRIPT:
 %s
 
-%s`, instructions, transcriptFile, p.userName, titleDate, customerNameProper, customerNameUpper, transcript, context)
+%s`, instructions, writingSkillBlock, transcriptFile, p.userName, titleDate, customerNameProper, customerNameUpper, transcript, context)
 
 	// Execute AI command with separate stdout/stderr capture
 	result, stderr, err := p.executeAICommand(prompt)

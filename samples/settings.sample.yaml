@@ -68,6 +68,27 @@ ai:
   #   - "gpt-4.1-mini"
 
 # ============================================================================
+# WRITING SKILLS CONFIGURATION
+# ============================================================================
+# meetsum can inject a writing-style skill into the AI prompt to control the
+# voice and tone of generated summaries. It follows a fallback hierarchy:
+#   1. writing_style (custom skill trained on the user's voice + humanizer)
+#   2. humanizer (generic AI-slop removal)
+#   3. No skill (uses default tone from the instructions file)
+#
+# Paths support ~ for home directory expansion.
+skills:
+  # Path to the writing-style skill file (highest priority)
+  # This is a custom skill trained on the user's writing style, combined with
+  # humanizer anti-patterns. Install via Claude Code skill creator.
+  writing_style: "~/.claude/skills/writing-style/writing-style.md"
+
+  # Path to the humanizer skill file (fallback if writing-style not found)
+  # A generic skill that removes common AI writing patterns.
+  # Install from: https://github.com/jamesflores/humanizer-claude-code-skill
+  humanizer: "~/.claude/skills/humanizer/humanizer.md"
+
+# ============================================================================
 # USER CONFIGURATION
 # ============================================================================
 user:

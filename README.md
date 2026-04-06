@@ -245,6 +245,46 @@ ai:
 Compatibility note: existing inline args in `ai.command` still work when `ai.args` is empty.
 To avoid ambiguity, do not combine inline args in `ai.command` with a non-empty `ai.args`.
 
+### Writing Skills (Optional)
+
+meetsum can inject a writing-style skill into the AI prompt to control the voice and tone of generated summaries. Skills are loaded with a fallback hierarchy:
+
+1. **writing-style** (highest priority) - A custom skill trained on the user's writing style, combined with humanizer anti-patterns. Produces summaries that sound like _you_ wrote them.
+2. **humanizer** (fallback) - A generic skill that removes common AI writing patterns (e.g. "Additionally," "Furthermore," filler phrases, significance inflation).
+3. **No skill** - If neither file is found, summaries use the default tone from the LLM instructions file.
+
+#### Installing the Humanizer Skill
+
+The humanizer skill is an open-source Claude Code skill available on GitHub:
+
+```bash
+# From your Claude Code session, install the skill:
+# https://github.com/jamesflores/humanizer-claude-code-skill
+#
+# After installation it lives at:
+# ~/.claude/skills/humanizer/humanizer.md
+```
+
+Follow the repository's README for installation instructions. meetsum looks for it at `~/.claude/skills/humanizer/humanizer.md` by default.
+
+#### Installing the Writing-Style Skill
+
+The writing-style skill is a custom skill you create with Claude Code's skill creator. It captures your personal writing voice and combines it with humanizer anti-patterns so you get both benefits in one file.
+
+To create one:
+
+1. Open Claude Code and run `/skill-creator`
+2. Train it on samples of your writing (Slack messages, emails, summaries)
+3. Save the skill to `~/.claude/skills/writing-style/writing-style.md`
+
+meetsum looks for it at that path by default. If you store your skills elsewhere, override the paths in `settings.yaml`:
+
+```yaml
+skills:
+  writing_style: "/path/to/your/writing-style.md"
+  humanizer: "/path/to/your/humanizer.md"
+```
+
 ### Complete Configuration
 
 See [settings.sample.yaml](settings.sample.yaml) for all available options with detailed comments.

@@ -36,6 +36,11 @@ type Config struct {
 		Output string `mapstructure:"output"` // screen, file, both
 	} `mapstructure:"logging"`
 
+	Skills struct {
+		WritingStyle string `mapstructure:"writing_style"`
+		Humanizer    string `mapstructure:"humanizer"`
+	} `mapstructure:"skills"`
+
 	User struct {
 		Name string `mapstructure:"name"`
 	} `mapstructure:"user"`
@@ -61,6 +66,8 @@ func LoadConfig() error {
 	viper.SetDefault("paths.automation_dir", filepath.Join(homeDir, "Documents", "Company", "automation", "summaries"))
 	viper.SetDefault("paths.instructions_file", "Meeting-summary-llm-instructions.md")
 	viper.SetDefault("files.pov_input", "pov-input.md")
+	viper.SetDefault("skills.writing_style", filepath.Join(homeDir, ".claude", "skills", "writing-style", "writing-style.md"))
+	viper.SetDefault("skills.humanizer", filepath.Join(homeDir, ".claude", "skills", "humanizer", "humanizer.md"))
 	viper.SetDefault("ai.command", "gemini")
 	viper.SetDefault("ai.args", []string{})
 	viper.SetDefault("features.trace_mode", false)
@@ -91,9 +98,26 @@ func (c *Config) GetPovInputPath(meetingDir string) string {
 	return filepath.Join(meetingDir, c.Files.PovInput)
 }
 
-// GetLogFilePath returns the expanded log file path
-func (c *Config) GetLogFilePath() string {
-	path := c.Logging.File
+// GetWritingSkillPath returns the path to the best available writing skill file.
+// Priority: writing_style > humanizer > "" (none).
+func (c *Config) GetWritingSkillPath() string {
+	ws := c.expandHome(c.Skills.WritingStyle)
+	if ws != "" {
+		if _, err := os.Stat(ws); err == nil {
+			return ws
+		}
+	}
+	h := c.expandHome(c.Skills.Humanizer)
+	if h != "" {
+		if _, err := os.Stat(h); err == nil {
+			return h
+		}
+	}
+	return ""
+}
+
+// expandHome replaces a leading ~/ with the user home directory.
+func (c *Config) expandHome(path string) string {
 	if strings.HasPrefix(path, "~/") {
 		homeDir, err := os.UserHomeDir()
 		if err == nil {
@@ -101,4 +125,9 @@ func (c *Config) GetLogFilePath() string {
 		}
 	}
 	return path
+}
+
+// GetLogFilePath returns the expanded log file path
+func (c *Config) GetLogFilePath() string {
+	return c.expandHome(c.Logging.File)
 }
